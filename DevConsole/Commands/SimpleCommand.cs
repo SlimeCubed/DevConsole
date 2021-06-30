@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using RunCommandHandler = System.Action<string[]>;
 
 namespace DevConsole.Commands
 {
@@ -19,14 +20,14 @@ namespace DevConsole.Commands
         /// </summary>
         public string Summary { get; set; }
 
-        private Action<string[]> handler;
+        private readonly RunCommandHandler handler;
 
         /// <summary>
         /// Creates a new simple command to be registered with <see cref="GameConsole.RegisterCommand(ICommandHandler)"/>.
         /// </summary>
         /// <param name="commandName">The first word the user must type into the console to run this command.</param>
         /// <param name="handler">A delegate called when the user runs this command.</param>
-        public SimpleCommand(string commandName, Action<string[]> handler)
+        public SimpleCommand(string commandName, RunCommandHandler handler)
         {
             CommandName = commandName;
             Summary = CommandName;

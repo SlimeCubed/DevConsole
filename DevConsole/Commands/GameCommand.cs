@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using Object = UnityEngine.Object;
+using RunGameCommandHandler = System.Action<RainWorldGame, string[]>;
 
 namespace DevConsole.Commands
 {
@@ -20,7 +21,7 @@ namespace DevConsole.Commands
         /// </summary>
         public string Summary { get; set; }
 
-        private RunGameCommandHandler handler;
+        private readonly RunGameCommandHandler handler;
 
         /// <summary>
         /// Creates a new in-game-only command to be registered with <see cref="GameConsole.RegisterCommand(ICommandHandler)"/>.
@@ -49,12 +50,5 @@ namespace DevConsole.Commands
 
         /// <inheritdoc/>
         public string Help() => Summary;
-
-        /// <summary>
-        /// Runs an in-game command.
-        /// </summary>
-        /// <param name="game">The current <see cref="RainWorldGame"/> instance.</param>
-        /// <param name="args">The arguments passed to the command excluding the command name.</param>
-        public delegate void RunGameCommandHandler(RainWorldGame game, string[] args);
     }
 }

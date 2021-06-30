@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using HelpHandler = System.Func<string>;
+using RunCommandHandler = System.Func<string[], string, bool>;
 
 namespace DevConsole.Commands
 {
@@ -33,20 +35,5 @@ namespace DevConsole.Commands
 
         /// <inheritdoc/>
         public bool RunCommand(string[] args, string rawCommand) => run?.Invoke(args, rawCommand) ?? false;
-
-        /// <summary>
-        /// Gets a short summary of the command's syntax, including the name and arguments.
-        /// </summary>
-        /// <returns>A string containing a short summary of the command's syntax, including the name and arguments.</returns>
-        public delegate string HelpHandler();
-
-        /// <summary>
-        /// Runs a command or returns false if the arguments do not match the command's syntax.
-        /// </summary>
-        /// <param name="args">A list of arguments parsed from <paramref name="rawCommand" />. </param>
-        /// <param name="rawCommand">The raw string entered by the user into the console.</param>
-        /// <returns><c>true</c> if the command syntax matches, <c>false</c> otherwise.
-        /// This should return <c>true</c> even if the command errors.</returns>
-        public delegate bool RunCommandHandler(string[] args, string rawCommand);
     }
 }
