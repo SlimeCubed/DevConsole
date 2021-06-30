@@ -61,12 +61,72 @@ namespace DevConsole
             })
             { Summary = "throw [message?]" });
 
+            // Writes a list of lines to the console
             RegisterCommand(new SimpleCommand("echo", args =>
             {
                 foreach (var line in args)
                     WriteLine(line);
             })
             { Summary = "echo [line1?] [line2?] ..." });
+
+            // Speeds up the game
+            {
+                Hook hook = null;
+
+                RegisterCommand(new SimpleCommand("game_speed", args =>
+                {
+                    // Support more than one physics update per frame
+                    void FixedRawUpdate(On.MainLoopProcess.orig_RawUpdate orig, MainLoopProcess self, float dt)
+                    {
+                        self.myTimeStacker += dt * self.framesPerSecond;
+                        while (self.myTimeStacker > 1f)
+                        {
+                            self.Update();
+                            self.myTimeStacker -= 1f;
+
+                            // Extra graphics updates are needed to reduce visual artifacts
+                            if(self.myTimeStacker > 1f)
+                                self.GrafUpdate(self.myTimeStacker);
+                        }
+                        self.GrafUpdate(self.myTimeStacker);
+                    }
+
+                    try
+                    {
+                        if (args.Length == 0)
+                        {
+                            // Log game speed
+                            WriteLine($"Game speed: {Time.timeScale}x");
+                        }
+                        else
+                        {
+                            float targetSpeed = float.Parse(args[0]);
+                            if (targetSpeed < 0) targetSpeed = 1f;
+
+                            if (Mathf.Abs(targetSpeed - 1f) < 0.001f)
+                            {
+                                Time.timeScale = 1f;
+                                hook?.Dispose();
+                                hook = null;
+                                WriteLine("Reset game speed.");
+                            }
+                            else
+                            {
+                                Time.timeScale = targetSpeed;
+                                if (hook == null)
+                                    hook = new Hook(typeof(MainLoopProcess).GetMethod("RawUpdate"), (On.MainLoopProcess.hook_RawUpdate)FixedRawUpdate);
+                                WriteLine($"Set game speed to {targetSpeed}x.");
+                            }
+                        }
+
+                    }
+                    catch
+                    {
+                        WriteLine("Failed to set game speed!");
+                    }
+                })
+                { Summary = "game_speed [speed_multiplier?]" });
+            }
 
             #endregion Misc
 
@@ -205,6 +265,12 @@ namespace DevConsole
             })
             { Summary = "remove_crits [respawn: true]" });
 
+            #endregion Creatures
+
+
+            // Commands related to the player
+            #region Players
+
             // Allows players to swim through everything
             {
                 bool noclip = false;
@@ -251,7 +317,7 @@ namespace DevConsole
                         return noclip ? new Room.Tile(x, y, Room.Tile.TerrainType.Air, false, false, false, 0, 0) : orig(self, x, y);
                     }
 
-                    if(hooks.Count == 0)
+                    if (hooks.Count == 0)
                     {
                         hooks.Add(new Hook(typeof(Player).GetMethod("Update"), (On.Player.hook_Update)NoClip));
                         hooks.Add(new Hook(typeof(Room).GetMethod("FloatWaterLevel"), (On.Room.hook_FloatWaterLevel)HighWaterLevel));
@@ -266,7 +332,89 @@ namespace DevConsole
                 }));
             }
 
-            #endregion Creatures
+            // Changes the player's current karma
+            RegisterCommand(new GameCommand("karma", (game, args) =>
+            {
+                try
+                {
+                    if (args.Length == 0) WriteLine("Karma: " + game.GetStorySession?.saveState?.deathPersistentSaveData.karma.ToString() ?? "N/A");
+                    else game.GetStorySession.saveState.deathPersistentSaveData.karma = int.Parse(args[0]);
+                }
+                catch
+                {
+                    WriteLine("Failed to set karma!");
+                }
+            })
+            { Summary = "karma [value?]" });
+
+            // Changes the player's karma cap
+            RegisterCommand(new GameCommand("karma_cap", (game, args) =>
+            {
+                try
+                {
+                    if (args.Length == 0) WriteLine("Karma cap: " + game.GetStorySession?.saveState?.deathPersistentSaveData.karmaCap.ToString() ?? "N/A");
+                    else game.GetStorySession.saveState.deathPersistentSaveData.karmaCap = int.Parse(args[0]);
+                }
+                catch
+                {
+                    WriteLine("Failed to set karma cap!");
+                }
+            })
+            { Summary = "karma_cap [value?]" });
+
+            // Makes the player mostly invulnerable
+            {
+                List<Hook> hooks = new List<Hook>();
+
+                RegisterCommand(new SimpleCommand("invuln", args =>
+                {
+                    void StopViolence(On.Creature.orig_Violence orig, Creature self, BodyChunk source, Vector2? directionAndMomentum, BodyChunk hitChunk, PhysicalObject.Appendage.Pos hitAppendage, Creature.DamageType type, float damage, float stunBonus)
+                    {
+                        if (self.Template?.type != CreatureTemplate.Type.Slugcat)
+                            orig(self, source, directionAndMomentum, hitChunk, hitAppendage, type, damage, stunBonus);
+                    }
+
+                    void StopDeath(On.Player.orig_Die orig, Player self) { }
+
+                    void StopHarm(On.Player.orig_Update orig, Player self, bool eu)
+                    {
+                        self.airInLungs = 1f;
+                        self.stun = 0;
+                        self.rainDeath = 0f;
+                        self.AllGraspsLetGoOfThisObject(true);
+                        orig(self, eu);
+                    }
+
+                    try
+                    {
+                        if (hooks.Count == 0)
+                        {
+                            hooks.Add(new Hook(typeof(Player).GetMethod("Die"), (On.Player.hook_Die)StopDeath));
+
+                            if (args.Length == 0 || !bool.Parse(args[0]))
+                            {
+                                hooks.Add(new Hook(typeof(Creature).GetMethod("Violence"), (On.Creature.hook_Violence)StopViolence));
+                                hooks.Add(new Hook(typeof(Player).GetMethod("Update"), (On.Player.hook_Update)StopHarm));
+                            }
+                            WriteLine("Enabled invulnerability.");
+                        }
+                        else
+                        {
+                            foreach (var hook in hooks)
+                                hook.Dispose();
+                            hooks.Clear();
+                            WriteLine("Disabled invulnerability.");
+                        }
+                    }
+                    catch
+                    {
+                        WriteLine("Failed to toggle invulnerability!");
+                    }
+                })
+                { Summary = "invuln [death_only: false]" });
+            }
+
+            #endregion Players
 
 
             // Commands related to objects

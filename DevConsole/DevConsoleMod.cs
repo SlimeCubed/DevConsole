@@ -4,8 +4,6 @@ using System.Linq;
 using System.Text;
 using Partiality.Modloader;
 
-//TODO: karma/cap, game_speed, god
-
 namespace DevConsole
 {
     internal class DevConsoleMod : PartialityMod
