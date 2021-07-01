@@ -69,6 +69,17 @@ namespace DevConsole
             })
             { Summary = "echo [line1?] [line2?] ..." });
 
+            // Runs a command and suppresses all output for its duration
+            RegisterCommand(new SimpleCommand("silence", args =>
+            {
+                if (args.Length == 0)
+                    WriteLine("No command given to silence!");
+                else
+                    foreach (var cmd in args)
+                        RunCommandSilent(cmd);
+            })
+            { Summary = "silence [command1] [command2?] [command3?] ..." });
+
             // Speeds up the game
             {
                 Hook hook = null;
@@ -127,6 +138,51 @@ namespace DevConsole
                 })
                 { Summary = "game_speed [speed_multiplier?]" });
             }
+
+            // Manipulate the cycle timer
+            RegisterCommand(new GameCommand("rain_timer", (game, args) =>
+            {
+                try
+                {
+                    var cycle = game.world.rainCycle;
+                    if (args.Length == 0 || args[0] == "help")
+                    {
+                        WriteLine("rain_timer get");
+                        WriteLine("rain_timer set [new_value]");
+                        WriteLine("rain_timer reset");
+                        WriteLine("rain_timer pause");
+                    }
+                    else
+                    {
+                        switch (args[0])
+                        {
+                            case "get": WriteLine($"Rain timer: {cycle.timer}\nTicks until rain: {cycle.TimeUntilRain}"); break;
+                            case "set": cycle.timer = int.Parse(args[1]); break;
+                            case "reset": cycle.timer = 0; break;
+                            case "pause":
+                                if (cycle.pause > 0)
+                                {
+                                    WriteLine("Unpaused rain.");
+                                    cycle.pause = 0;
+                                }
+                                else
+                                {
+                                    WriteLine("Paused rain.");
+                                    cycle.pause = int.MaxValue / 2;
+                                }
+                                break;
+                            default:
+                                WriteLine("Unknown subcommand!");
+                                break;
+                        }
+                    }
+                }
+                catch
+                {
+                    WriteLine("Couldn't modify rain timer!");
+                }
+            })
+            { Summary = "rain_timer [subcommand?] [arg?]" });
 
             #endregion Misc
 
@@ -211,6 +267,18 @@ namespace DevConsole
 
             // Unbinds everything
             RegisterCommand(new SimpleCommand("unbind_all", args => Bindings.UnbindAll()));
+
+            // Creates a command alias
+            RegisterCommand(new SimpleCommand("alias", args =>
+            {
+                if (args.Length == 0)
+                    WriteLine("No alias was given!");
+                else if (args.Length == 1)
+                    Aliases.RemoveAlias(args[0]);
+                else
+                    Aliases.SetAlias(args[0], args.Skip(1).ToArray());
+            })
+            { Summary = "alias [name] [command1?] [command2?] ..." });
 
             #endregion Bindings
 
@@ -338,7 +406,16 @@ namespace DevConsole
                 try
                 {
                     if (args.Length == 0) WriteLine("Karma: " + game.GetStorySession?.saveState?.deathPersistentSaveData.karma.ToString() ?? "N/A");
-                    else game.GetStorySession.saveState.deathPersistentSaveData.karma = int.Parse(args[0]);
+                    else
+                    {
+                        game.GetStorySession.saveState.deathPersistentSaveData.karma = int.Parse(args[0]);
+
+                        for (int i = 0; i < game.cameras.Length; i++)
+                        {
+                            HUD.KarmaMeter karmaMeter = game.cameras[i].hud.karmaMeter;
+                            karmaMeter?.UpdateGraphic();
+                        }
+                    }
                 }
                 catch
                 {

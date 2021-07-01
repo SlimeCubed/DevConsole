@@ -19,29 +19,32 @@ namespace DevConsole
     public class GameConsole : MonoBehaviour
     {
         private const int consoleMargin = 10;  // Pixel margin between the border and the text
-        private const int consoleHeight = 750; // Pixel height of the console's bounds
+        private const int consoleHeight = 650; // Pixel height of the console's bounds
         private const int consoleWidth = 1000; // Pixel width of the console's bounds
-        private const int lineHeight = 20;     // Pixel height of each line of output
-        private const int maxLines = (consoleHeight - 2 * consoleMargin) / lineHeight; // Number of lines that can fit on the screen
-        private const string startupCommandsFile = "devConsoleStartup.txt";
+        private const int lineHeight = 15;     // Pixel height of each line of output
+        private const int maxLines = (consoleHeight - 2 * consoleMargin) / lineHeight - 1; // Number of lines of output that can fit on the screen
+        private const string startupCommandsFile = "devConsoleStartup.txt";                // File path to a list of commands to run on init
 
         private static GameConsole instance;        // The game's console instance
         private static List<IDetour> inputBlockers; // A list of detours that cause input to be ignored
         private static bool blockingInput = false;  // True while the input blockers are active
+        private static bool isGamePaused = false;   // True while the game is paused
         private static readonly List<CommandHandlerInfo> commands = new List<CommandHandlerInfo>();
         private static List<QueuedLine> queuedLines = new List<QueuedLine>(); // Lines sent before init
-        private static readonly string[] newLines = new string[] // All characters that will be replaced by a line break
+        private static readonly string[] newLines = new string[]              // All characters that will be replaced by a line break
         { 
             Environment.NewLine, "\r\n", "\r", "\n"
         }; 
 
         private bool initialized;     // True once the console has been created - it must wait for Futile to init
         private bool typing;          // True when input is redirected to the command line
+        private bool silent;          // True when all logs to the console should be hidden
         private FContainer container; // The container for all game console nodes
         private FSprite background;   // The background rect of the game console
         private FLabel inputLabel;    // Displays the user's command line input
         private StringBuilder inputString = new StringBuilder();        // Stores the user's command line input
         private readonly Queue<LineInfo> lines = new Queue<LineInfo>(); // Stores the most recent output lines added
+        private DevConsoleMod mod;
 
         /// <summary>
         /// Registers critical built-in commands.
@@ -87,9 +90,10 @@ namespace DevConsole
         /// </summary>
         public static bool Initialized => instance?.initialized ?? false;
 
-        internal static void Apply()
+        internal static void Apply(DevConsoleMod mod)
         {
             instance = new GameObject("Dev Console").AddComponent<GameConsole>();
+            instance.mod = mod;
         }
 
         /// <summary>
@@ -109,7 +113,8 @@ namespace DevConsole
 
             if (Futile.instance == null || Futile.atlasManager == null)
             {
-                queuedLines.Add(new QueuedLine() { color = color, text = text });
+                if(!instance?.silent ?? true)
+                    queuedLines.Add(new QueuedLine() { color = color, text = text });
                 return;
             }
             foreach (string line in text.Split(newLines, StringSplitOptions.None))
@@ -171,6 +176,26 @@ namespace DevConsole
             instance?.SubmitCommand(command, echo);
         }
 
+        /// <summary>
+        /// Like <see cref="RunCommand(string, bool)"/>, but all output from the command is suppressed.
+        /// </summary>
+        /// <param name="command">The command to run.</param>
+        public static void RunCommandSilent(string command)
+        {
+            if (instance == null) return;
+
+            bool wasSilent = instance.silent;
+            instance.silent = true;
+            try
+            {
+                RunCommand(command);
+            }
+            finally
+            {
+                instance.silent = wasSilent;
+            }
+        }
+
         private void Update()
         {
             if (!initialized)
@@ -192,11 +217,15 @@ namespace DevConsole
                 typing = true;
                 container.isVisible = true;
                 skipInput = true;
+
+                PauseGame(DevConsoleMod.autopause);
             }
             else if (typing && (Input.GetKeyUp(KeyCode.Escape) || Input.GetKeyDown(KeyCode.BackQuote)))
             {
                 typing = false;
                 container.isVisible = false;
+
+                PauseGame(false);
             }
 
             // Do input
@@ -306,7 +335,11 @@ namespace DevConsole
             {
                 string[] lines = File.ReadAllLines(Path.Combine(Custom.RootFolderDirectory(), startupCommandsFile.Replace('\\', Path.DirectorySeparatorChar)));
                 foreach (var line in lines)
+                {
+                    if (string.IsNullOrEmpty(line)) continue;
+                    if (line.StartsWith("//")) continue;
                     RunCommand(line);
+                }
             }
             catch {}
         }
@@ -317,13 +350,33 @@ namespace DevConsole
                 container.MoveToFront();
         }
 
+        private void PauseGame(bool shouldPause)
+        {
+            void BlockUpdate(On.RainWorld.orig_Update orig, RainWorld self) { }
+
+            if (shouldPause && !isGamePaused)
+            {
+                On.RainWorld.Update += BlockUpdate;
+                isGamePaused = true;
+            }
+            else if(!shouldPause && isGamePaused)
+            {
+                On.RainWorld.Update -= BlockUpdate;
+                isGamePaused = false;
+            }
+        }
+
         private void SubmitCommand(string command, bool echo = true)
         {
-            if(echo)
-                AddLine(" > " + command, new Color(0.7f, 0.7f, 0.7f));
+            if(echo) AddLine(" > " + command, new Color(0.7f, 0.7f, 0.7f));
+
             string[] args = SplitCommandLine(command).ToArray();
             if (args.Length > 0)
             {
+                // Check all aliases
+                if (Aliases.RunAlias(args)) return;
+
+                // Check all commands
                 for (int i = commands.Count - 1; i >= 0; i--)
                 {
                     try
@@ -361,6 +414,8 @@ namespace DevConsole
 
         private void AddLine(string text, Color color)
         {
+            if (silent) return;
+
             LineInfo line;
             if (lines.Count < maxLines)
             {
@@ -381,6 +436,7 @@ namespace DevConsole
             lines.Enqueue(line);
         }
 
+        // Blocks input from reaching other listeners
         private static void CaptureInput(bool shouldCapture)
         {
             if (shouldCapture && !blockingInput)
@@ -425,43 +481,86 @@ namespace DevConsole
             }
         }
 
-        // https://stackoverflow.com/questions/298830/split-string-containing-command-line-parameters-into-string-in-c-sharp/298990
+        private static readonly Dictionary<char, string> escapeCodes = new Dictionary<char, string>()
+        {
+            { '"', "\"" },
+            { '\\', "\\" }
+        };
         private static IEnumerable<string> SplitCommandLine(string commandLine)
         {
-            bool inQuotes = false;
+            int cursor = 0;
+            int len = commandLine.Length;
 
-            IEnumerable<string> Split(string str, Func<char, bool> controller)
+            while (cursor < len)
             {
-                int nextPiece = 0;
+                // Eat whitespace before argument
+                while (cursor < len && char.IsWhiteSpace(commandLine[cursor]))
+                    cursor++;
 
-                for (int c = 0; c < str.Length; c++)
+                if (cursor >= len) yield break;
+
+                // Slice out the argument
+                int sliceStart = cursor;
+                bool quoted = commandLine[cursor] == '"';
+                StringBuilder arg = new StringBuilder();
+                if (quoted) cursor++;
+
+                while (cursor < len)
                 {
-                    if (controller(str[c]))
+                    char c = commandLine[cursor];
+
+                    switch (c)
                     {
-                        yield return str.Substring(nextPiece, c - nextPiece);
-                        nextPiece = c + 1;
+                        case '"':
+                            if (quoted && (cursor + 1 == commandLine.Length || char.IsWhiteSpace(commandLine[cursor + 1])))
+                            {
+                                // This quote is at the end of an argument
+                                // Slice it here
+                                cursor++;
+                                goto argDone;
+                            }
+                            break;
+
+
+                        case '\\':
+                            if (cursor + 1 < commandLine.Length && escapeCodes.TryGetValue(commandLine[cursor + 1], out string escaped))
+                            {
+                                // There is an escaped character here
+                                // Slice just before the escape sequence
+                                arg.Append(commandLine.Substring(sliceStart, cursor - sliceStart));
+                                arg.Append(escaped);
+                                cursor++;
+                                sliceStart = cursor + 1;
+                            }
+                            break;
+
+                        default:
+                            // Split at spaces
+                            if (!quoted && char.IsWhiteSpace(c))
+                            {
+                                goto argDone;
+                            }
+                            break;
                     }
+
+                    cursor++;
                 }
 
-                yield return str.Substring(nextPiece);
+            argDone:
+                // Append the rest
+                if (sliceStart < cursor && sliceStart < commandLine.Length)
+                    arg.Append(commandLine.Substring(sliceStart, Math.Min(cursor, commandLine.Length) - sliceStart));
+
+                // Remove matching quotes
+                if (arg.Length > 1 && arg[0] == '"' && arg[arg.Length - 1] == '"')
+                {
+                    arg.Remove(arg.Length - 1, 1);
+                    arg.Remove(0, 1);
+                }
+
+                if (arg.Length > 0)
+                    yield return arg.ToString();
             }
-
-            string TrimMatchingQuotes(string input, char quote)
-            {
-                if ((input.Length >= 2) &&
-                    (input[0] == quote) && (input[input.Length - 1] == quote))
-                    return input.Substring(1, input.Length - 2);
-
-                return input;
-            }
-
-            return Split(commandLine, c =>
-            {
-                if (c == '\"') inQuotes = !inQuotes;
-                return !inQuotes && c == ' ';
-            })
-                .Select(arg => TrimMatchingQuotes(arg.Trim(), '\"'))
-                .Where(arg => !string.IsNullOrEmpty(arg));
         }
 
         private static bool GetKey(Func<string, bool> orig, string name) => blockingInput ? false : orig(name);
