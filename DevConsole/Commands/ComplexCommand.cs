@@ -13,6 +13,7 @@ namespace DevConsole.Commands
     /// <remarks>
     /// This may be used instead of implementing the <see cref="ICommandHandler"/> interface so that
     /// the mod's types may be loaded without loading DevConsole.
+    /// If possible, use <see cref="CommandBuilder"/> instead.
     /// </remarks>
     public class ComplexCommand : ICommandHandler
     {

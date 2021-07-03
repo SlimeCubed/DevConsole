@@ -30,6 +30,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <DocumentationFile>bin\Release\DevConsole.xml</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Assembly-CSharp">
@@ -65,21 +66,23 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Aliases.cs" />
+    <Compile Include="Autocomplete.cs" />
     <Compile Include="BindEvents\IBindEvent.cs" />
     <Compile Include="BindEvents\KeyCodeEvent.cs" />
     <Compile Include="BindEvents\KeyMode.cs" />
     <Compile Include="BindEvents\KeyNameEvent.cs" />
     <Compile Include="Bindings.cs" />
     <Compile Include="BuiltInCommands.cs" />
+    <Compile Include="Commands\CommandBuilder.cs" />
     <Compile Include="Commands\ComplexCommand.cs" />
+    <Compile Include="Commands\IAutoCompletable.cs" />
     <Compile Include="Config\ConfigGenerator.cs" />
     <Compile Include="Config\ConsoleConfig.cs" />
     <Compile Include="DevConsoleMod.cs" />
-    <Compile Include="Commands\GameCommand.cs" />
     <Compile Include="Commands\ICommandHandler.cs" />
     <Compile Include="GameConsole.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Commands\SimpleCommand.cs" />
+    <Compile Include="StringEx.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

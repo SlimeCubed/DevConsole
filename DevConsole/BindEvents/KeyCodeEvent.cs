@@ -21,6 +21,7 @@ namespace DevConsole.BindEvents
         /// Creates a new event.
         /// </summary>
         /// <param name="keyCode">The <see cref="KeyCode"/> to check for.</param>
+        /// <param name="mode">Determines when to trigger the event during each keypress.</param>
         public KeyCodeEvent(KeyCode keyCode, KeyMode mode = KeyMode.Down)
         {
             Key = keyCode;

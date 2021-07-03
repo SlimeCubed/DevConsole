@@ -44,7 +44,7 @@ namespace DevConsole
         /// <summary>
         /// Executes the commands associated with an alias.
         /// </summary>
-        /// <param name="name">The name of the aliased command.</param>
+        /// <param name="args">The list of arguments input to the command line.</param>
         /// <returns><c>true</c> if there was an alias to run, <c>false</c> otherwise.</returns>
         public static bool RunAlias(string[] args)
         {
@@ -55,5 +55,11 @@ namespace DevConsole
                 GameConsole.RunCommand(cmd);
             return true;
         }
+
+        /// <summary>
+        /// Gets all aliases.
+        /// </summary>
+        /// <returns>A list of all registered aliases.</returns>
+        public static IEnumerable<string> GetAliases() => aliases.Keys;
     }
 }

@@ -25,25 +25,27 @@ namespace DevConsole
         private const int maxLines = (consoleHeight - 2 * consoleMargin) / lineHeight - 1; // Number of lines of output that can fit on the screen
         private const string startupCommandsFile = "devConsoleStartup.txt";                // File path to a list of commands to run on init
 
+        private static readonly Color backColor = new Color(0f, 0f, 0f);
+        private static readonly float backAlpha = 0.75f;
+        private static readonly Color defaultTextColor = new Color(1f, 1f, 1f);
+
         private static GameConsole instance;        // The game's console instance
         private static List<IDetour> inputBlockers; // A list of detours that cause input to be ignored
         private static bool blockingInput = false;  // True while the input blockers are active
         private static bool isGamePaused = false;   // True while the game is paused
         private static readonly List<CommandHandlerInfo> commands = new List<CommandHandlerInfo>();
         private static List<QueuedLine> queuedLines = new List<QueuedLine>(); // Lines sent before init
-        private static readonly string[] newLines = new string[]              // All characters that will be replaced by a line break
-        { 
-            Environment.NewLine, "\r\n", "\r", "\n"
-        }; 
 
-        private bool initialized;     // True once the console has been created - it must wait for Futile to init
-        private bool typing;          // True when input is redirected to the command line
-        private bool silent;          // True when all logs to the console should be hidden
-        private FContainer container; // The container for all game console nodes
-        private FSprite background;   // The background rect of the game console
-        private FLabel inputLabel;    // Displays the user's command line input
+        private bool initialized;         // True once the console has been created - it must wait for Futile to init
+        private bool typing;              // True when input is redirected to the command line
+        private bool silent;              // True when all logs to the console should be hidden
+        private FContainer container;     // The container for all game console nodes
+        private FContainer textContainer; // The container for the console's text
+        private FSprite background;       // The background rect of the game console
+        private FLabel inputLabel;        // Displays the user's command line input
         private StringBuilder inputString = new StringBuilder();        // Stores the user's command line input
         private readonly Queue<LineInfo> lines = new Queue<LineInfo>(); // Stores the most recent output lines added
+        private Autocomplete autocomplete;
         private DevConsoleMod mod;
 
         /// <summary>
@@ -55,33 +57,39 @@ namespace DevConsole
             RegisterCommand(new CatchAllCommand());
 
             // Displays the syntax of all registered commands
-            RegisterCommand(new SimpleCommand("help", args =>
-            {
-                int page;
-                if (args.Length == 0 || !int.TryParse(args[0], out page))
-                    page = 0;
-                else
-                    page = Math.Max(page - 1, 0);
-
-                var helps = commands
-                    .Select(cmd => cmd.Help())
-                    .Where(help => help != null)
-                    .Skip(maxLines * page)
-                    .Take(maxLines)
-                    .ToArray();
-
-                Array.Sort(helps);
-                if (helps.Length > 0)
+            new CommandBuilder("help")
+                .Run(args =>
                 {
-                    foreach (var help in helps)
-                        WriteLine(help);
-                }
-                else
-                {
-                    WriteLine("That page is empty!");
-                }
-            })
-            { Summary = "help [page?]" });
+                    int page;
+                    if (args.Length == 0 || !int.TryParse(args[0], out page))
+                        page = 0;
+                    else
+                        page = Math.Max(page - 1, 0);
+
+                    var helps = commands
+                        .Select(cmd =>
+                        {
+                            try { return cmd.Help(); }
+                            catch { return null; }
+                        })
+                        .Where(help => help != null)
+                        .Skip(maxLines * page)
+                        .Take(maxLines)
+                        .ToArray();
+
+                    Array.Sort(helps);
+                    if (helps.Length > 0)
+                    {
+                        foreach (var help in helps)
+                            WriteLine(help);
+                    }
+                    else
+                    {
+                        WriteLine("That page is empty!");
+                    }
+                })
+                .Help("help [page?]")
+                .Register();
         }
 
         /// <summary>
@@ -89,6 +97,22 @@ namespace DevConsole
         /// Methods calls in <see cref="GameConsole"/>, unless otherwise specified, will wait for the console to be initialized to execute.
         /// </summary>
         public static bool Initialized => instance?.initialized ?? false;
+
+        /// <summary>
+        /// Enumerates all commands that are compatible with autocomplete.
+        /// </summary>
+        public static IEnumerable<IAutoCompletable> AutoCompletableCommands => commands.Select(cmd => cmd.inner as IAutoCompletable).Where(cmd => cmd != null);
+
+        /// <summary>
+        /// The number of lines of console output that fit on the console.
+        /// If a command outputs lots of lines, consider breaking it up in pages of this size.
+        /// </summary>
+        public static int OutputLines => maxLines;
+
+        /// <summary>
+        /// The default text color to use for the console.
+        /// </summary>
+        public static Color DefaultColor => defaultTextColor;
 
         internal static void Apply(DevConsoleMod mod)
         {
@@ -100,7 +124,7 @@ namespace DevConsole
         /// Writes one or more lines of white text to the console.
         /// </summary>
         /// <param name="text">The text to write.</param>
-        public static void WriteLine(string text) => WriteLine(text, Color.white);
+        public static void WriteLine(string text) => WriteLine(text, DefaultColor);
 
         /// <summary>
         /// Writes one or more lines of colored text to the console.
@@ -117,7 +141,7 @@ namespace DevConsole
                     queuedLines.Add(new QueuedLine() { color = color, text = text });
                 return;
             }
-            foreach (string line in text.Split(newLines, StringSplitOptions.None))
+            foreach (string line in text.SplitLines())
                 instance.AddLine(line, color);
         }
 
@@ -196,6 +220,11 @@ namespace DevConsole
             }
         }
 
+        // No construction allowed
+        private GameConsole()
+        {
+        }
+
         private void Update()
         {
             if (!initialized)
@@ -231,8 +260,10 @@ namespace DevConsole
             // Do input
             if (typing && !skipInput)
             {
+                bool changed = false;
                 foreach (var c in Input.inputString)
                 {
+                    changed = true;
                     switch (c)
                     {
                         // Remove one character when backspace is pressed
@@ -264,6 +295,11 @@ namespace DevConsole
                     }
                 }
 
+                if (changed)
+                    autocomplete.UpdateText(inputString.ToString());
+
+                autocomplete.Update(inputString);
+                
                 // Disallow inputs for the rest of the frame
                 CaptureInput(true);
             }
@@ -290,6 +326,12 @@ namespace DevConsole
                 }
 
                 container.MoveToFront();
+
+                autocomplete.Container.MoveToFront();
+
+                autocomplete.Container.SetPosition(inputLabel.LocalToOther(new Vector2(inputLabel.textRect.xMax + 1f, inputLabel.textRect.yMin), autocomplete.Container.container));
+                
+                autocomplete.Container.isVisible = true;
             }
         }
 
@@ -297,6 +339,7 @@ namespace DevConsole
         {
             initialized = true;
             container = new FContainer();
+            textContainer = new FContainer();
 
             background = new FSprite("pixel")
             {
@@ -304,8 +347,8 @@ namespace DevConsole
                 anchorY = 0f,
                 scaleX = consoleWidth,
                 scaleY = consoleHeight,
-                color = Color.black,
-                alpha = 0.75f
+                color = backColor,
+                alpha = backAlpha
             };
             inputLabel = new FLabel("font", "")
             {
@@ -314,7 +357,8 @@ namespace DevConsole
             };
 
             container.AddChild(background);
-            container.AddChild(inputLabel);
+            container.AddChild(textContainer);
+            textContainer.AddChild(inputLabel);
             container.isVisible = false;
             Futile.stage.AddChild(container);
 
@@ -325,6 +369,9 @@ namespace DevConsole
             queuedLines = null;
 
             BuiltInCommands.RegisterCommands();
+
+            autocomplete = new Autocomplete();
+            container.AddChild(autocomplete.Container);
 
             RunStartupCommands();
         }
@@ -370,7 +417,7 @@ namespace DevConsole
         {
             if(echo) AddLine(" > " + command, new Color(0.7f, 0.7f, 0.7f));
 
-            string[] args = SplitCommandLine(command).ToArray();
+            string[] args = command.SplitCommandLine().ToArray();
             if (args.Length > 0)
             {
                 // Check all aliases
@@ -410,7 +457,7 @@ namespace DevConsole
             }
         }
 
-        private void AddLine(string text) => AddLine(text, Color.white);
+        private void AddLine(string text) => AddLine(text, DefaultColor);
 
         private void AddLine(string text, Color color)
         {
@@ -426,7 +473,7 @@ namespace DevConsole
                     anchorY = 0f,
                     color = color
                 };
-                container.AddChild(line.label);
+                textContainer.AddChild(line.label);
             }
             else
                 line = lines.Dequeue();
@@ -481,88 +528,6 @@ namespace DevConsole
             }
         }
 
-        private static readonly Dictionary<char, string> escapeCodes = new Dictionary<char, string>()
-        {
-            { '"', "\"" },
-            { '\\', "\\" }
-        };
-        private static IEnumerable<string> SplitCommandLine(string commandLine)
-        {
-            int cursor = 0;
-            int len = commandLine.Length;
-
-            while (cursor < len)
-            {
-                // Eat whitespace before argument
-                while (cursor < len && char.IsWhiteSpace(commandLine[cursor]))
-                    cursor++;
-
-                if (cursor >= len) yield break;
-
-                // Slice out the argument
-                int sliceStart = cursor;
-                bool quoted = commandLine[cursor] == '"';
-                StringBuilder arg = new StringBuilder();
-                if (quoted) cursor++;
-
-                while (cursor < len)
-                {
-                    char c = commandLine[cursor];
-
-                    switch (c)
-                    {
-                        case '"':
-                            if (quoted && (cursor + 1 == commandLine.Length || char.IsWhiteSpace(commandLine[cursor + 1])))
-                            {
-                                // This quote is at the end of an argument
-                                // Slice it here
-                                cursor++;
-                                goto argDone;
-                            }
-                            break;
-
-
-                        case '\\':
-                            if (cursor + 1 < commandLine.Length && escapeCodes.TryGetValue(commandLine[cursor + 1], out string escaped))
-                            {
-                                // There is an escaped character here
-                                // Slice just before the escape sequence
-                                arg.Append(commandLine.Substring(sliceStart, cursor - sliceStart));
-                                arg.Append(escaped);
-                                cursor++;
-                                sliceStart = cursor + 1;
-                            }
-                            break;
-
-                        default:
-                            // Split at spaces
-                            if (!quoted && char.IsWhiteSpace(c))
-                            {
-                                goto argDone;
-                            }
-                            break;
-                    }
-
-                    cursor++;
-                }
-
-            argDone:
-                // Append the rest
-                if (sliceStart < cursor && sliceStart < commandLine.Length)
-                    arg.Append(commandLine.Substring(sliceStart, Math.Min(cursor, commandLine.Length) - sliceStart));
-
-                // Remove matching quotes
-                if (arg.Length > 1 && arg[0] == '"' && arg[arg.Length - 1] == '"')
-                {
-                    arg.Remove(arg.Length - 1, 1);
-                    arg.Remove(0, 1);
-                }
-
-                if (arg.Length > 0)
-                    yield return arg.ToString();
-            }
-        }
-
         private static bool GetKey(Func<string, bool> orig, string name) => blockingInput ? false : orig(name);
         private static bool GetKey(Func<KeyCode, bool> orig, KeyCode code) => blockingInput ? false : orig(code);
         private static bool GetKeyDown(Func<string, bool> orig, string name) => blockingInput ? false : orig(name);
@@ -599,8 +564,13 @@ namespace DevConsole
                 {
                     // Some modloaders mess with the assembly names, so a type name is good enough
                     // The full stack trace will be logged to console anyway
-                    var method = registerTrace.GetFrame(1).GetMethod();
-                    return $"{method.Name} in {method.DeclaringType.Name}";
+                    for (int i = 1; i < registerTrace.FrameCount; i++)
+                    {
+                        var method = registerTrace.GetFrame(1).GetMethod();
+                        if (method.DeclaringType == typeof(CommandBuilder)) continue;
+                        return $"{method.Name} in {method.DeclaringType.Name}";
+                    }
+                    return "Unknown";
                 }
             }
 

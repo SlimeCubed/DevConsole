@@ -21,6 +21,7 @@ namespace DevConsole.BindEvents
         /// Creates a new event.
         /// </summary>
         /// <param name="keyName">The key name to check for.</param>
+        /// <param name="mode">Determines when to trigger the event during each keypress.</param>
         public KeyNameEvent(string keyName, KeyMode mode = KeyMode.Down)
         {
             KeyName = keyName;

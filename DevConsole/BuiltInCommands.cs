@@ -16,7 +16,7 @@ namespace DevConsole
     internal static class BuiltInCommands
     {
         // Colors associated with each Unity log type
-        private static Dictionary<LogType, Color> logColors = new Dictionary<LogType, Color>()
+        private static readonly Dictionary<LogType, Color> logColors = new Dictionary<LogType, Color>()
         {
             { LogType.Error, new Color(0.7f, 0f, 0f) },
             { LogType.Assert, new Color(1f, 0.7f, 0f) },
@@ -35,154 +35,170 @@ namespace DevConsole
             #region Misc
 
             // Mirrors all Debug.Log* calls to the dev console
-            RegisterCommand(new SimpleCommand("show_debug", args =>
-            {
-                var cb = (Application.LogCallback)Application_s_LogCallback.GetValue(null);
-                if (showingDebug) cb -= WriteLogToConsole;
-                else cb += WriteLogToConsole;
-                showingDebug = !showingDebug;
-                Application.RegisterLogCallback(cb);
-                WriteLine(showingDebug ? "Debug messages will be displayed here." : "Debug messages will no longer be displayed here.");
-            }));
+            new CommandBuilder("show_debug")
+                .Run(args =>
+                {
+                    var cb = (Application.LogCallback)Application_s_LogCallback.GetValue(null);
+                    if (showingDebug) cb -= WriteLogToConsole;
+                    else cb += WriteLogToConsole;
+                    showingDebug = !showingDebug;
+                    Application.RegisterLogCallback(cb);
+                    WriteLine(showingDebug ? "Debug messages will be displayed here." : "Debug messages will no longer be displayed here.");
+                })
+                .Register();
 
             // Clears the console
-            RegisterCommand(new SimpleCommand("clear", args =>
-            {
-                Clear();
-                WriteHeader();
-            }));
+            new CommandBuilder("clear")
+                .Run(args =>
+                {
+                    Clear();
+                    WriteHeader();
+                })
+                .Register();
 
             // Throws an exception
             // Useful, right?
-            RegisterCommand(new SimpleCommand("throw", args =>
-            {
-                if (args.Length > 0) throw new Exception(string.Join(" ", args));
-                else throw new Exception();
-            })
-            { Summary = "throw [message?]" });
+            new CommandBuilder("throw")
+                .Run(args =>
+                {
+                    if (args.Length > 0) throw new Exception(string.Join(" ", args));
+                })
+                .Help("throw [message?]")
+                .Register();
 
             // Writes a list of lines to the console
-            RegisterCommand(new SimpleCommand("echo", args =>
-            {
-                foreach (var line in args)
-                    WriteLine(line);
-            })
-            { Summary = "echo [line1?] [line2?] ..." });
+            new CommandBuilder("echo")
+                .Run(args =>
+                {
+                    foreach (var line in args)
+                        WriteLine(line);
+                })
+                .Help("echo [line1?] [line2?] ...")
+                .Register();
 
             // Runs a command and suppresses all output for its duration
-            RegisterCommand(new SimpleCommand("silence", args =>
-            {
-                if (args.Length == 0)
-                    WriteLine("No command given to silence!");
-                else
-                    foreach (var cmd in args)
-                        RunCommandSilent(cmd);
-            })
-            { Summary = "silence [command1] [command2?] [command3?] ..." });
+            new CommandBuilder("silence")
+                .Run(args =>
+                {
+                    if (args.Length == 0)
+                        WriteLine("No command given to silence!");
+                    else
+                        foreach (var cmd in args)
+                            RunCommandSilent(cmd);
+                })
+                .Help("silence [command1] [command2?] [command3?] ...")
+                .Register();
 
             // Speeds up the game
             {
                 Hook hook = null;
 
-                RegisterCommand(new SimpleCommand("game_speed", args =>
-                {
-                    // Support more than one physics update per frame
-                    void FixedRawUpdate(On.MainLoopProcess.orig_RawUpdate orig, MainLoopProcess self, float dt)
+                new CommandBuilder("game_speed")
+                    .Run(args =>
                     {
-                        self.myTimeStacker += dt * self.framesPerSecond;
-                        while (self.myTimeStacker > 1f)
+                        // Support more than one physics update per frame
+                        void FixedRawUpdate(On.MainLoopProcess.orig_RawUpdate orig, MainLoopProcess self, float dt)
                         {
-                            self.Update();
-                            self.myTimeStacker -= 1f;
-
-                            // Extra graphics updates are needed to reduce visual artifacts
-                            if(self.myTimeStacker > 1f)
-                                self.GrafUpdate(self.myTimeStacker);
-                        }
-                        self.GrafUpdate(self.myTimeStacker);
-                    }
-
-                    try
-                    {
-                        if (args.Length == 0)
-                        {
-                            // Log game speed
-                            WriteLine($"Game speed: {Time.timeScale}x");
-                        }
-                        else
-                        {
-                            float targetSpeed = float.Parse(args[0]);
-                            if (targetSpeed < 0) targetSpeed = 1f;
-
-                            if (Mathf.Abs(targetSpeed - 1f) < 0.001f)
+                            self.myTimeStacker += dt * self.framesPerSecond;
+                            while (self.myTimeStacker > 1f)
                             {
-                                Time.timeScale = 1f;
-                                hook?.Dispose();
-                                hook = null;
-                                WriteLine("Reset game speed.");
+                                self.Update();
+                                self.myTimeStacker -= 1f;
+
+                                // Extra graphics updates are needed to reduce visual artifacts
+                                if (self.myTimeStacker > 1f)
+                                    self.GrafUpdate(self.myTimeStacker);
+                            }
+                            self.GrafUpdate(self.myTimeStacker);
+                        }
+
+                        try
+                        {
+                            if (args.Length == 0)
+                            {
+                                // Log game speed
+                                WriteLine($"Game speed: {Time.timeScale}x");
                             }
                             else
                             {
-                                Time.timeScale = targetSpeed;
-                                if (hook == null)
-                                    hook = new Hook(typeof(MainLoopProcess).GetMethod("RawUpdate"), (On.MainLoopProcess.hook_RawUpdate)FixedRawUpdate);
-                                WriteLine($"Set game speed to {targetSpeed}x.");
-                            }
-                        }
+                                float targetSpeed = float.Parse(args[0]);
+                                if (targetSpeed < 0) targetSpeed = 1f;
 
-                    }
-                    catch
-                    {
-                        WriteLine("Failed to set game speed!");
-                    }
-                })
-                { Summary = "game_speed [speed_multiplier?]" });
-            }
-
-            // Manipulate the cycle timer
-            RegisterCommand(new GameCommand("rain_timer", (game, args) =>
-            {
-                try
-                {
-                    var cycle = game.world.rainCycle;
-                    if (args.Length == 0 || args[0] == "help")
-                    {
-                        WriteLine("rain_timer get");
-                        WriteLine("rain_timer set [new_value]");
-                        WriteLine("rain_timer reset");
-                        WriteLine("rain_timer pause");
-                    }
-                    else
-                    {
-                        switch (args[0])
-                        {
-                            case "get": WriteLine($"Rain timer: {cycle.timer}\nTicks until rain: {cycle.TimeUntilRain}"); break;
-                            case "set": cycle.timer = int.Parse(args[1]); break;
-                            case "reset": cycle.timer = 0; break;
-                            case "pause":
-                                if (cycle.pause > 0)
+                                if (Mathf.Abs(targetSpeed - 1f) < 0.001f)
                                 {
-                                    WriteLine("Unpaused rain.");
-                                    cycle.pause = 0;
+                                    Time.timeScale = 1f;
+                                    hook?.Dispose();
+                                    hook = null;
+                                    WriteLine("Reset game speed.");
                                 }
                                 else
                                 {
-                                    WriteLine("Paused rain.");
-                                    cycle.pause = int.MaxValue / 2;
+                                    Time.timeScale = targetSpeed;
+                                    if (hook == null)
+                                        hook = new Hook(typeof(MainLoopProcess).GetMethod("RawUpdate"), (On.MainLoopProcess.hook_RawUpdate)FixedRawUpdate);
+                                    WriteLine($"Set game speed to {targetSpeed}x.");
                                 }
-                                break;
-                            default:
-                                WriteLine("Unknown subcommand!");
-                                break;
+                            }
+
+                        }
+                        catch
+                        {
+                            WriteLine("Failed to set game speed!");
+                        }
+                    })
+                    .Help("game_speed [speed_multiplier?]")
+                    .Register();
+            }
+
+            // Manipulate the cycle timer
+            new CommandBuilder("rain_timer")
+                .RunGame((game, args) =>
+                {
+                    try
+                    {
+                        var cycle = game.world.rainCycle;
+                        if (args.Length == 0 || args[0] == "help")
+                        {
+                            WriteLine("rain_timer get");
+                            WriteLine("rain_timer set [new_value]");
+                            WriteLine("rain_timer reset");
+                            WriteLine("rain_timer pause");
+                        }
+                        else
+                        {
+                            switch (args[0])
+                            {
+                                case "get": WriteLine($"Rain timer: {cycle.timer}\nTicks until rain: {cycle.TimeUntilRain}"); break;
+                                case "set": cycle.timer = int.Parse(args[1]); break;
+                                case "reset": cycle.timer = 0; break;
+                                case "pause":
+                                    if (cycle.pause > 0)
+                                    {
+                                        WriteLine("Unpaused rain.");
+                                        cycle.pause = 0;
+                                    }
+                                    else
+                                    {
+                                        WriteLine("Paused rain.");
+                                        cycle.pause = int.MaxValue / 2;
+                                    }
+                                    break;
+                                default:
+                                    WriteLine("Unknown subcommand!");
+                                    break;
+                            }
                         }
                     }
-                }
-                catch
-                {
-                    WriteLine("Couldn't modify rain timer!");
-                }
-            })
-            { Summary = "rain_timer [subcommand?] [arg?]" });
+                    catch
+                    {
+                        WriteLine("Couldn't modify rain timer!");
+                    }
+                })
+                .Help("rain_timer [subcommand?] [arg?]")
+                .AutoComplete(new string[][] {
+                    new string[] { "get", "set", "reset", "pause" }
+                })
+                .Register();
 
             #endregion Misc
 
@@ -191,94 +207,117 @@ namespace DevConsole
             #region Bindings
 
             // Binds a key to a command
-            RegisterCommand(new SimpleCommand("bind", args =>
-            {
-                if (args.Length < 1 || args[0].Length == 0)
+            new CommandBuilder("bind")
+                .Run(args =>
                 {
-                    WriteLine("No keycode specified!");
-                    return;
-                }
-
-                IBindEvent e = EventFromKey(args[0]);
-                if (e == null)
-                {
-                    WriteLine($"Couldn't find key: {args[0]}");
-                    return;
-                }
-
-                if (args.Length == 1)
-                {
-                    // Only the key was specified
-                    // Get and print all binds
-                    var boundCommands = Bindings.GetBoundCommands(e);
-                    if (boundCommands.Length == 0)
-                        WriteLine("No commands bound.");
-                    else
-                        foreach (var cmd in boundCommands)
-                            WriteLine(cmd);
-                }
-                else
-                {
-                    // A list of commands was specified
-                    // Bind them
-                    foreach (var cmd in args.Skip(1))
+                    if (args.Length < 1 || args[0].Length == 0)
                     {
-                        if (cmd == "") continue;
-                        Bindings.Bind(e, cmd);
+                        WriteLine("No keycode specified!");
+                        return;
                     }
-                }
-            })
-            { Summary = "bind [keycode] [commmand1?] [command2?] ..." });
+
+                    IBindEvent e = EventFromKey(args[0]);
+                    if (e == null)
+                    {
+                        WriteLine($"Couldn't find key: {args[0]}");
+                        return;
+                    }
+
+                    if (args.Length == 1)
+                    {
+                        // Only the key was specified
+                        // Get and print all binds
+                        var boundCommands = Bindings.GetBoundCommands(e);
+                        if (boundCommands.Length == 0)
+                            WriteLine("No commands bound.");
+                        else
+                            foreach (var cmd in boundCommands)
+                                WriteLine(cmd);
+                    }
+                    else
+                    {
+                        // A list of commands was specified
+                        // Bind them
+                        foreach (var cmd in args.Skip(1))
+                        {
+                            if (cmd == "") continue;
+                            Bindings.Bind(e, cmd);
+                        }
+                    }
+                })
+                .Help("bind [keycode] [commmand1?] [command2?] ...")
+                .AutoComplete(args =>
+                {
+                    if (args.Length == 0) return GetKeyNames();
+                    else return null;
+                })
+                .Register();
 
             // Unbinds a key
-            RegisterCommand(new SimpleCommand("unbind", args =>
-            {
-                if (args.Length < 1 || args[0].Length == 0)
+            new CommandBuilder("unbind")
+                .Run(args =>
                 {
-                    WriteLine("No keycode specified!");
-                    return;
-                }
-
-                IBindEvent e = EventFromKey(args[0]);
-                if (e == null)
-                {
-                    WriteLine($"Couldn't find key: {args[0]}");
-                    return;
-                }
-
-                if (args.Length == 1)
-                {
-                    // Only the key was specified
-                    // Unbind all
-                    Bindings.UnbindAll(e);
-                }
-                else
-                {
-                    // A list of commands was specified
-                    // Unbind them all
-                    foreach (var cmd in args.Skip(1))
+                    if (args.Length < 1 || args[0].Length == 0)
                     {
-                        if (cmd == "") continue;
-                        Bindings.Unbind(e, cmd);
+                        WriteLine("No keycode specified!");
+                        return;
                     }
-                }
-            })
-            { Summary = "unbind [keycode] [commmand1?] [command2?] ..." });
+
+                    IBindEvent e = EventFromKey(args[0]);
+                    if (e == null)
+                    {
+                        WriteLine($"Couldn't find key: {args[0]}");
+                        return;
+                    }
+
+                    if (args.Length == 1)
+                    {
+                        // Only the key was specified
+                        // Unbind all
+                        Bindings.UnbindAll(e);
+                    }
+                    else
+                    {
+                        // A list of commands was specified
+                        // Unbind them all
+                        foreach (var cmd in args.Skip(1))
+                        {
+                            if (cmd == "") continue;
+                            Bindings.Unbind(e, cmd);
+                        }
+                    }
+                })
+                .Help("unbind [keycode] [commmand1?] [command2?] ...")
+                .AutoComplete(args =>
+                {
+                    if (args.Length == 0) return GetKeyNames();
+                    else return null;
+                })
+                .Register();
 
             // Unbinds everything
-            RegisterCommand(new SimpleCommand("unbind_all", args => Bindings.UnbindAll()));
+            new CommandBuilder("unbind_all")
+                .Run(args => Bindings.UnbindAll())
+                .Register();
 
             // Creates a command alias
-            RegisterCommand(new SimpleCommand("alias", args =>
-            {
-                if (args.Length == 0)
-                    WriteLine("No alias was given!");
-                else if (args.Length == 1)
-                    Aliases.RemoveAlias(args[0]);
-                else
-                    Aliases.SetAlias(args[0], args.Skip(1).ToArray());
-            })
-            { Summary = "alias [name] [command1?] [command2?] ..." });
+            new CommandBuilder("alias")
+                .Run(args =>
+                {
+                    if (args.Length == 0)
+                        WriteLine("No alias was given!");
+                    else if (args.Length == 1)
+                        Aliases.RemoveAlias(args[0]);
+                    else
+                        Aliases.SetAlias(args[0], args.Skip(1).ToArray());
+                })
+                .Help("alias [name] [command1?] [command2?] ...")
+                .AutoComplete(args =>
+                {
+                    if (args.Length == 0) return Aliases.GetAliases();
+                    else return null;
+                })
+                .Register();
 
             #endregion Bindings
 
@@ -287,51 +326,63 @@ namespace DevConsole
             #region Creatures
 
             // Spawns a single creature by type
-            RegisterCommand(new GameCommand("creature", (game, args) =>
-            {
-                try
+            new CommandBuilder("creature")
+                .RunGame((game, args) =>
                 {
-                    var player = game.Players[0].realizedCreature as Player;
-                    new AbstractCreature(
-                        game.world,
-                        StaticWorld.GetCreatureTemplate(WorldLoader.CreatureTypeFromString(args[0]) ?? (CreatureTemplate.Type)Enum.Parse(typeof(CreatureTemplate.Type), args[0], true)),
-                        null,
-                        player.coord,
-                        game.GetNewID()
-                    ).RealizeInRoom();
-                }
-                catch { WriteLine("Failed to spawn creature!"); }
-            })
-            { Summary = "creature [type]" });
+                    try
+                    {
+                        var player = game.Players[0].realizedCreature as Player;
+
+                        // Find the creature to spawn, first by exact name then by creature type enum
+                        CreatureTemplate template = StaticWorld.creatureTemplates.FirstOrDefault(t => t.name.Equals(args[0], StringComparison.OrdinalIgnoreCase));
+                        if (template == null) template = StaticWorld.GetCreatureTemplate((CreatureTemplate.Type)Enum.Parse(typeof(CreatureTemplate.Type), args[0], true));
+                        
+                        new AbstractCreature(
+                            game.world,
+                            template,
+                            null,
+                            player.coord,
+                            game.GetNewID()
+                        ).RealizeInRoom();
+                    }
+                    catch { WriteLine("Failed to spawn creature!"); }
+                })
+                .Help("creature [type]")
+                .AutoComplete(new string[][] {
+                    Enum.GetNames(typeof(CreatureTemplate.Type)).Concat(StaticWorld.creatureTemplates.Select(t => t.name)).ToArray()
+                })
+                .Register();
 
             // Kills everything in the current region
-            RegisterCommand(new GameCommand("remove_crits", (game, args) =>
-            {
-                try
+            new CommandBuilder("remove_crits")
+                .RunGame((game, args) =>
                 {
-                    bool respawn = (args.Length > 0) ? bool.Parse(args[0]) : false;
-
-                    foreach (var room in game.world.abstractRooms.Concat(new AbstractRoom[] { game.world.offScreenDen }))
+                    try
                     {
-                        foreach (var crit in room.creatures)
+                        bool respawn = (args.Length > 0) ? bool.Parse(args[0]) : false;
+
+                        foreach (var room in game.world.abstractRooms.Concat(new AbstractRoom[] { game.world.offScreenDen }))
                         {
-                            if (crit.creatureTemplate.type != CreatureTemplate.Type.Slugcat)
+                            foreach (var crit in room.creatures)
                             {
-                                if (respawn)
-                                    crit.Die();
-                                crit.realizedCreature?.LoseAllGrasps();
-                                crit.realizedObject?.Destroy();
-                                crit.Destroy();
+                                if (crit.creatureTemplate.type != CreatureTemplate.Type.Slugcat)
+                                {
+                                    if (respawn)
+                                        crit.Die();
+                                    crit.realizedCreature?.LoseAllGrasps();
+                                    crit.realizedObject?.Destroy();
+                                    crit.Destroy();
+                                }
                             }
                         }
                     }
-                }
-                catch
-                {
-                    WriteLine("Failed to destroy everything in the region.");
-                }
-            })
-            { Summary = "remove_crits [respawn: true]" });
+                    catch
+                    {
+                        WriteLine("Failed to destroy everything in the region.");
+                    }
+                })
+                .Help("remove_crits [respawn: true]")
+                .Register();
 
             #endregion Creatures
 
@@ -345,150 +396,161 @@ namespace DevConsole
                 bool remove = false;
                 List<Hook> hooks = new List<Hook>();
 
-                RegisterCommand(new SimpleCommand("noclip", args =>
-                {
-                    void NoClip(On.Player.orig_Update orig, Player self, bool eu)
+                new CommandBuilder("noclip")
+                    .Run(args =>
                     {
-                        noclip = true;
-                        bool roomWater = self.room.water;
-                        try
+                        void NoClip(On.Player.orig_Update orig, Player self, bool eu)
                         {
-                            self.room.water = true;
-                            orig(self, eu);
-                            self.airInLungs = 1f;
-
-                            self.CollideWithTerrain = false;
-
-                            if (remove)
+                            noclip = true;
+                            bool roomWater = self.room.water;
+                            try
                             {
-                                foreach (var hook in hooks)
-                                    hook.Dispose();
-                                hooks.Clear();
-                                self.CollideWithTerrain = true;
-                                remove = false;
+                                self.room.water = true;
+                                orig(self, eu);
+                                self.airInLungs = 1f;
+
+                                self.CollideWithTerrain = false;
+
+                                if (remove)
+                                {
+                                    foreach (var hook in hooks)
+                                        hook.Dispose();
+                                    hooks.Clear();
+                                    self.CollideWithTerrain = true;
+                                    remove = false;
+                                }
+                            }
+                            finally
+                            {
+                                noclip = false;
+                                self.room.water = roomWater;
                             }
                         }
-                        finally
+
+                        float HighWaterLevel(On.Room.orig_FloatWaterLevel orig, Room self, float horizontalPos)
                         {
-                            noclip = false;
-                            self.room.water = roomWater;
+                            return noclip ? 100000f : orig(self, horizontalPos);
                         }
-                    }
 
-                    float HighWaterLevel(On.Room.orig_FloatWaterLevel orig, Room self, float horizontalPos)
-                    {
-                        return noclip ? 100000f : orig(self, horizontalPos);
-                    }
+                        Room.Tile RemoveTiles(On.Room.orig_GetTile_3 orig, Room self, int x, int y)
+                        {
+                            return noclip ? new Room.Tile(x, y, Room.Tile.TerrainType.Air, false, false, false, 0, 0) : orig(self, x, y);
+                        }
 
-                    Room.Tile RemoveTiles(On.Room.orig_GetTile_3 orig, Room self, int x, int y)
-                    {
-                        return noclip ? new Room.Tile(x, y, Room.Tile.TerrainType.Air, false, false, false, 0, 0) : orig(self, x, y);
-                    }
-
-                    if (hooks.Count == 0)
-                    {
-                        hooks.Add(new Hook(typeof(Player).GetMethod("Update"), (On.Player.hook_Update)NoClip));
-                        hooks.Add(new Hook(typeof(Room).GetMethod("FloatWaterLevel"), (On.Room.hook_FloatWaterLevel)HighWaterLevel));
-                        hooks.Add(new Hook(typeof(Room).GetMethod("GetTile", new Type[] { typeof(int), typeof(int) }), (On.Room.hook_GetTile_3)RemoveTiles));
-                        WriteLine("Enabled noclip.");
-                    }
-                    else
-                    {
-                        WriteLine("Disabled noclip.");
-                        remove = true;
-                    }
-                }));
+                        if (hooks.Count == 0)
+                        {
+                            hooks.Add(new Hook(typeof(Player).GetMethod("Update"), (On.Player.hook_Update)NoClip));
+                            hooks.Add(new Hook(typeof(Room).GetMethod("FloatWaterLevel"), (On.Room.hook_FloatWaterLevel)HighWaterLevel));
+                            hooks.Add(new Hook(typeof(Room).GetMethod("GetTile", new Type[] { typeof(int), typeof(int) }), (On.Room.hook_GetTile_3)RemoveTiles));
+                            WriteLine("Enabled noclip.");
+                        }
+                        else
+                        {
+                            WriteLine("Disabled noclip.");
+                            remove = true;
+                        }
+                    })
+                    .Register();
             }
 
             // Changes the player's current karma
-            RegisterCommand(new GameCommand("karma", (game, args) =>
-            {
-                try
+            new CommandBuilder("karma")
+                .RunGame((game, args) =>
                 {
-                    if (args.Length == 0) WriteLine("Karma: " + game.GetStorySession?.saveState?.deathPersistentSaveData.karma.ToString() ?? "N/A");
-                    else
+                    try
                     {
-                        game.GetStorySession.saveState.deathPersistentSaveData.karma = int.Parse(args[0]);
-
-                        for (int i = 0; i < game.cameras.Length; i++)
+                        if (args.Length == 0) WriteLine("Karma: " + game.GetStorySession?.saveState?.deathPersistentSaveData.karma.ToString() ?? "N/A");
+                        else
                         {
-                            HUD.KarmaMeter karmaMeter = game.cameras[i].hud.karmaMeter;
-                            karmaMeter?.UpdateGraphic();
+                            game.GetStorySession.saveState.deathPersistentSaveData.karma = int.Parse(args[0]);
+
+                            for (int i = 0; i < game.cameras.Length; i++)
+                            {
+                                HUD.KarmaMeter karmaMeter = game.cameras[i].hud.karmaMeter;
+                                karmaMeter?.UpdateGraphic();
+                            }
                         }
                     }
-                }
-                catch
-                {
-                    WriteLine("Failed to set karma!");
-                }
-            })
-            { Summary = "karma [value?]" });
+                    catch
+                    {
+                        WriteLine("Failed to set karma!");
+                    }
+                })
+                .Help("karma [value?]")
+                .Register();
 
             // Changes the player's karma cap
-            RegisterCommand(new GameCommand("karma_cap", (game, args) =>
-            {
-                try
+            new CommandBuilder("karma_cap")
+                .RunGame((game, args) =>
                 {
-                    if (args.Length == 0) WriteLine("Karma cap: " + game.GetStorySession?.saveState?.deathPersistentSaveData.karmaCap.ToString() ?? "N/A");
-                    else game.GetStorySession.saveState.deathPersistentSaveData.karmaCap = int.Parse(args[0]);
-                }
-                catch
-                {
-                    WriteLine("Failed to set karma cap!");
-                }
-            })
-            { Summary = "karma_cap [value?]" });
+                    try
+                    {
+                        if (args.Length == 0) WriteLine("Karma cap: " + game.GetStorySession?.saveState?.deathPersistentSaveData.karmaCap.ToString() ?? "N/A");
+                        else game.GetStorySession.saveState.deathPersistentSaveData.karmaCap = int.Parse(args[0]);
+                    }
+                    catch
+                    {
+                        WriteLine("Failed to set karma cap!");
+                    }
+                })
+                .Help("karma_cap [value?]")
+                .Register();
 
             // Makes the player mostly invulnerable
             {
                 List<Hook> hooks = new List<Hook>();
 
-                RegisterCommand(new SimpleCommand("invuln", args =>
-                {
-                    void StopViolence(On.Creature.orig_Violence orig, Creature self, BodyChunk source, Vector2? directionAndMomentum, BodyChunk hitChunk, PhysicalObject.Appendage.Pos hitAppendage, Creature.DamageType type, float damage, float stunBonus)
+                new CommandBuilder("invuln")
+                    .Run(args =>
                     {
-                        if (self.Template?.type != CreatureTemplate.Type.Slugcat)
-                            orig(self, source, directionAndMomentum, hitChunk, hitAppendage, type, damage, stunBonus);
-                    }
-
-                    void StopDeath(On.Player.orig_Die orig, Player self) { }
-
-                    void StopHarm(On.Player.orig_Update orig, Player self, bool eu)
-                    {
-                        self.airInLungs = 1f;
-                        self.stun = 0;
-                        self.rainDeath = 0f;
-                        self.AllGraspsLetGoOfThisObject(true);
-                        orig(self, eu);
-                    }
-
-                    try
-                    {
-                        if (hooks.Count == 0)
+                        void StopViolence(On.Creature.orig_Violence orig, Creature self, BodyChunk source, Vector2? directionAndMomentum, BodyChunk hitChunk, PhysicalObject.Appendage.Pos hitAppendage, Creature.DamageType type, float damage, float stunBonus)
                         {
-                            hooks.Add(new Hook(typeof(Player).GetMethod("Die"), (On.Player.hook_Die)StopDeath));
+                            if (self.Template?.type != CreatureTemplate.Type.Slugcat)
+                                orig(self, source, directionAndMomentum, hitChunk, hitAppendage, type, damage, stunBonus);
+                        }
 
-                            if (args.Length == 0 || !bool.Parse(args[0]))
+                        void StopDeath(On.Player.orig_Die orig, Player self) { }
+
+                        void StopHarm(On.Player.orig_Update orig, Player self, bool eu)
+                        {
+                            self.airInLungs = 1f;
+                            self.stun = 0;
+                            self.rainDeath = 0f;
+                            self.AllGraspsLetGoOfThisObject(true);
+                            orig(self, eu);
+                        }
+
+                        try
+                        {
+                            if (hooks.Count == 0)
                             {
-                                hooks.Add(new Hook(typeof(Creature).GetMethod("Violence"), (On.Creature.hook_Violence)StopViolence));
-                                hooks.Add(new Hook(typeof(Player).GetMethod("Update"), (On.Player.hook_Update)StopHarm));
+                                hooks.Add(new Hook(typeof(Player).GetMethod("Die"), (On.Player.hook_Die)StopDeath));
+
+                                if (args.Length == 0 || !bool.Parse(args[0]))
+                                {
+                                    hooks.Add(new Hook(typeof(Creature).GetMethod("Violence"), (On.Creature.hook_Violence)StopViolence));
+                                    hooks.Add(new Hook(typeof(Player).GetMethod("Update"), (On.Player.hook_Update)StopHarm));
+                                }
+                                WriteLine("Enabled invulnerability.");
                             }
-                            WriteLine("Enabled invulnerability.");
+                            else
+                            {
+                                foreach (var hook in hooks)
+                                    hook.Dispose();
+                                hooks.Clear();
+                                WriteLine("Disabled invulnerability.");
+                            }
                         }
-                        else
+                        catch
                         {
-                            foreach (var hook in hooks)
-                                hook.Dispose();
-                            hooks.Clear();
-                            WriteLine("Disabled invulnerability.");
+                            WriteLine("Failed to toggle invulnerability!");
                         }
-                    }
-                    catch
-                    {
-                        WriteLine("Failed to toggle invulnerability!");
-                    }
-                })
-                { Summary = "invuln [death_only: false]" });
+                    })
+                    .Help("invuln [death_only: false]")
+                    .AutoComplete(new string[][] {
+                        new string[] { "true", "false" }
+                    })
+                    .Register();
             }
 
             #endregion Players
@@ -498,78 +560,96 @@ namespace DevConsole
             #region Objects
 
             // Spawn an object by type
-            RegisterCommand(new GameCommand("object", (game, args) =>
-            {
-                try
+            new CommandBuilder("object")
+                .RunGame((game, args) =>
                 {
-                    var player = game.Players[0].realizedCreature as Player;
-                    var pos = player.coord;
-                    var id = game.GetNewID();
-                    var type = (AbstractPhysicalObject.AbstractObjectType)Enum.Parse(typeof(AbstractPhysicalObject.AbstractObjectType), args[0], true);
-                    AbstractPhysicalObject apo = null;
-                    switch (type)
+                    try
                     {
-                        case AbstractPhysicalObject.AbstractObjectType.Spear: apo = new AbstractSpear(game.world, null, pos, id, args.Skip(1).Contains("explosive")); break;
-                        case AbstractPhysicalObject.AbstractObjectType.BubbleGrass: apo = new BubbleGrass.AbstractBubbleGrass(game.world, null, pos, id, 1f, -1, -1, null); break;
-                        case AbstractPhysicalObject.AbstractObjectType.SporePlant: apo = new SporePlant.AbstractSporePlant(game.world, null, pos, id, -1, -1, null, false, true); break;
-                        case AbstractPhysicalObject.AbstractObjectType.WaterNut: apo = new WaterNut.AbstractWaterNut(game.world, null, pos, id, -1, -1, null, args.Skip(1).Contains("swollen")); break;
-                        case AbstractPhysicalObject.AbstractObjectType.DataPearl: break;
-                        default:
-                            if (AbstractConsumable.IsTypeConsumable(type)) apo = new AbstractConsumable(game.world, type, null, pos, id, -1, -1, null);
-                            else apo = new AbstractPhysicalObject(game.world, type, null, pos, id); break;
+                        var player = game.Players[0].realizedCreature as Player;
+                        var pos = player.coord;
+                        var id = game.GetNewID();
+                        var type = (AbstractPhysicalObject.AbstractObjectType)Enum.Parse(typeof(AbstractPhysicalObject.AbstractObjectType), args[0], true);
+                        AbstractPhysicalObject apo = null;
+                        switch (type)
+                        {
+                            case AbstractPhysicalObject.AbstractObjectType.Spear: apo = new AbstractSpear(game.world, null, pos, id, args.Skip(1).Contains("explosive")); break;
+                            case AbstractPhysicalObject.AbstractObjectType.BubbleGrass: apo = new BubbleGrass.AbstractBubbleGrass(game.world, null, pos, id, 1f, -1, -1, null); break;
+                            case AbstractPhysicalObject.AbstractObjectType.SporePlant: apo = new SporePlant.AbstractSporePlant(game.world, null, pos, id, -1, -1, null, false, true); break;
+                            case AbstractPhysicalObject.AbstractObjectType.WaterNut: apo = new WaterNut.AbstractWaterNut(game.world, null, pos, id, -1, -1, null, args.Skip(1).Contains("swollen")); break;
+                            case AbstractPhysicalObject.AbstractObjectType.DataPearl: break;
+                            default:
+                                if (AbstractConsumable.IsTypeConsumable(type)) apo = new AbstractConsumable(game.world, type, null, pos, id, -1, -1, null);
+                                else apo = new AbstractPhysicalObject(game.world, type, null, pos, id); break;
+                        }
+                        apo.RealizeInRoom();
                     }
-                    apo.RealizeInRoom();
-                }
-                catch { WriteLine("Failed to spawn object!"); }
-            })
-            { Summary = "object [type] [tag1?] [tag2?] ..." });
+                    catch { WriteLine("Failed to spawn object!"); }
+                })
+                .Help("object [type] [tag1?] [tag2?] ...")
+                .AutoComplete(new string[][] {
+                    Enum.GetNames(typeof(AbstractPhysicalObject.AbstractObjectType))
+                })
+                .Register();
 
             // Spawns a pearl by ID
-            RegisterCommand(new GameCommand("pearl", (game, args) =>
-            {
-                try
+            new CommandBuilder("pearl")
+                .RunGame((game, args) =>
                 {
-                    if(args.Length == 0)
+                    try
                     {
-                        // Print all known pearl types
-                        var names = Enum.GetNames(typeof(DataPearl.AbstractDataPearl.DataPearlType));
-                        int inLine = 0;
-                        StringBuilder sb = new StringBuilder();
-                        for(int i = 0; i < names.Length; i++)
+                        if (args.Length == 0)
                         {
-                            if (inLine != 0) sb.Append(", ");
-                            sb.Append(names[i]);
-                            if(inLine++ >= 10)
+                            // Print all known pearl types
+                            var names = Enum.GetNames(typeof(DataPearl.AbstractDataPearl.DataPearlType));
+                            int inLine = 0;
+                            StringBuilder sb = new StringBuilder();
+                            for (int i = 0; i < names.Length; i++)
                             {
-                                inLine = 0;
-                                WriteLine(sb.ToString());
-                                sb = new StringBuilder();
+                                if (inLine != 0) sb.Append(", ");
+                                sb.Append(names[i]);
+                                if (inLine++ >= 10)
+                                {
+                                    inLine = 0;
+                                    WriteLine(sb.ToString());
+                                    sb = new StringBuilder();
+                                }
                             }
+                            if (sb.Length > 0)
+                                WriteLine(sb.ToString());
+                            return;
                         }
-                        if (sb.Length > 0)
-                            WriteLine(sb.ToString());
-                        return;
+
+                        var type = (DataPearl.AbstractDataPearl.DataPearlType)Enum.Parse(typeof(DataPearl.AbstractDataPearl.DataPearlType), args[0], true);
+                        var player = (Player)game.Players[0].realizedCreature;
+                        var pearl = new DataPearl.AbstractDataPearl(game.world, AbstractPhysicalObject.AbstractObjectType.DataPearl, null, player.coord, game.GetNewID(), -1, -1, null, type);
+
+                        player.room.abstractRoom.AddEntity(pearl);
+                        pearl.pos = player.coord;
+                        pearl.RealizeInRoom();
+                        pearl.realizedObject.firstChunk.HardSetPosition(player.mainBodyChunk.pos);
+
+                        WriteLine($"Spawned pearl: {type}");
                     }
-
-                    var type = (DataPearl.AbstractDataPearl.DataPearlType)Enum.Parse(typeof(DataPearl.AbstractDataPearl.DataPearlType), args[0], true);
-                    var player = (Player)game.Players[0].realizedCreature;
-                    var pearl = new DataPearl.AbstractDataPearl(game.world, AbstractPhysicalObject.AbstractObjectType.DataPearl, null, player.coord, game.GetNewID(), -1, -1, null, type);
-
-                    player.room.abstractRoom.AddEntity(pearl);
-                    pearl.pos = player.coord;
-                    pearl.RealizeInRoom();
-                    pearl.realizedObject.firstChunk.HardSetPosition(player.mainBodyChunk.pos);
-
-                    WriteLine($"Spawned pearl: {type}");
-                }
-                catch
-                {
-                    WriteLine("Could not spawn pearl!");
-                }
-            })
-            { Summary = "pearl [pearl_type?]" });
+                    catch
+                    {
+                        WriteLine("Could not spawn pearl!");
+                    }
+                })
+                .Help("pearl [pearl_type?]")
+                .AutoComplete(new string[][] {
+                    Enum.GetNames(typeof(DataPearl.AbstractDataPearl.DataPearlType))
+                })
+                .Register();
 
             #endregion Objects
+        }
+
+        private static string[] keyNames;
+        private static IEnumerable<string> GetKeyNames()
+        {
+            if (keyNames == null)
+                keyNames = Enum.GetNames(typeof(KeyCode));
+            return keyNames;
         }
 
         private static IBindEvent EventFromKey(string key)
