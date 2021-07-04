@@ -8,7 +8,7 @@ namespace DevConsole
 {
     internal partial class DevConsoleMod : PartialityMod
     {
-        public const string versionString = "1.0.0";
+        public const string versionString = "0.1.0";
 
         // Config
         public static bool autopause = false; // Pause the game when the console is open

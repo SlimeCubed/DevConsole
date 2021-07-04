@@ -16,14 +16,16 @@ namespace DevConsole
             {
                 Vector2 listPos = new Vector2(300f, 450f);
 
-                void AddToggle(string key, string name, string desc, bool defaultValue)
+                // This can't capture any CM types or else it generates a type that can't load without CM
+                // The more you know
+                void AddToggle(OptionInterface oi, string key, string name, string desc, bool defaultValue)
                 {
                     const float width = 150f;
 
                     // Add default option to the end of the description
                     desc = $"{desc} Defaults to {defaultValue}.";
 
-                    self.Tabs[0].AddItems(
+                    oi.Tabs[0].AddItems(
                         new OpCheckBox(listPos - new Vector2(width / 2f, 12f), key, defaultValue)
                         {
                             description = desc
@@ -49,7 +51,7 @@ namespace DevConsole
                 );
 
                 // Toggles
-                AddToggle("devconsole.autopause", "Pause when open", "Pause the game while the console is open.", false);
+                AddToggle(self, "devconsole.autopause", "Pause when open", "Pause the game while the console is open.", false);
             }
 
             public static void ConfigOnChange(OptionInterface self)
