@@ -88,7 +88,7 @@ namespace DevConsole
                         WriteLine("That page is empty!");
                     }
                 })
-                .Help("help [page?]")
+                .Help("help [page: 1]")
                 .Register();
         }
 

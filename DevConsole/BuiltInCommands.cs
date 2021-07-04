@@ -20,9 +20,9 @@ namespace DevConsole
         {
             { LogType.Error, new Color(0.7f, 0f, 0f) },
             { LogType.Assert, new Color(1f, 0.7f, 0f) },
-            { LogType.Exception, Color.red },
+            { LogType.Warning, Color.yellow },
             { LogType.Log, Color.white },
-            { LogType.Warning, Color.yellow }
+            { LogType.Exception, Color.red }
         };
         
         // Fields for the log viewer
