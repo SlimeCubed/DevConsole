@@ -17,6 +17,7 @@ namespace DevConsole
 
         public FContainer Container { get; }
         public Color TextColor => Color.gray;
+        public Color BackColor => RWCustom.Custom.RGBA2RGB(GameConsole.BackColor);
         public string CurrentOption => (options == null || options.Count == 0) ? null : options[0];
 
         public Autocomplete()
@@ -26,7 +27,7 @@ namespace DevConsole
             back = new FSprite("pixel") {
                 anchorX = 0f,
                 anchorY = 0f,
-                color = Color.black
+                color = BackColor
             };
             Container.AddChild(back);
         }
@@ -78,6 +79,8 @@ namespace DevConsole
                 backRect.yMin = Math.Min(backRect.yMin, textMin.y);
                 backRect.yMax = Math.Max(backRect.yMax, textMax.y);
             }
+            if(backRect.width > 0 && backRect.height > 0)
+                backRect = backRect.CloneWithExpansion(4f);
             back.SetPosition(backRect.min);
             back.scaleX = backRect.width;
             back.scaleY = backRect.height;
@@ -157,6 +160,8 @@ namespace DevConsole
         // Shift the elements in the list, wrapping
         private void CycleLeft<T>(List<T> list, int amount)
         {
+            if (list.Count <= 1) return;
+
             amount = (amount % list.Count + list.Count) % list.Count;
 
             if (amount == 0) return;

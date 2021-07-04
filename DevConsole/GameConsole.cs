@@ -25,8 +25,7 @@ namespace DevConsole
         private const int maxLines = (consoleHeight - 2 * consoleMargin) / lineHeight - 1; // Number of lines of output that can fit on the screen
         private const string startupCommandsFile = "devConsoleStartup.txt";                // File path to a list of commands to run on init
 
-        private static readonly Color backColor = new Color(0f, 0f, 0f);
-        private static readonly float backAlpha = 0.75f;
+        private static readonly Color backColor = new Color(0f, 0f, 0f, 0.75f);
         private static readonly Color defaultTextColor = new Color(1f, 1f, 1f);
 
         private static GameConsole instance;        // The game's console instance
@@ -113,6 +112,11 @@ namespace DevConsole
         /// The default text color to use for the console.
         /// </summary>
         public static Color DefaultColor => defaultTextColor;
+
+        /// <summary>
+        /// The color of the background sprite of the console including transparency.
+        /// </summary>
+        public static Color BackColor => backColor;
 
         internal static void Apply(DevConsoleMod mod)
         {
@@ -327,8 +331,6 @@ namespace DevConsole
 
                 container.MoveToFront();
 
-                autocomplete.Container.MoveToFront();
-
                 autocomplete.Container.SetPosition(inputLabel.LocalToOther(new Vector2(inputLabel.textRect.xMax + 1f, inputLabel.textRect.yMin), autocomplete.Container.container));
                 
                 autocomplete.Container.isVisible = true;
@@ -340,6 +342,7 @@ namespace DevConsole
             initialized = true;
             container = new FContainer();
             textContainer = new FContainer();
+            autocomplete = new Autocomplete();
 
             background = new FSprite("pixel")
             {
@@ -347,8 +350,7 @@ namespace DevConsole
                 anchorY = 0f,
                 scaleX = consoleWidth,
                 scaleY = consoleHeight,
-                color = backColor,
-                alpha = backAlpha
+                color = BackColor
             };
             inputLabel = new FLabel("font", "")
             {
@@ -358,7 +360,9 @@ namespace DevConsole
 
             container.AddChild(background);
             container.AddChild(textContainer);
-            textContainer.AddChild(inputLabel);
+            container.AddChild(autocomplete.Container);
+            container.AddChild(inputLabel);
+
             container.isVisible = false;
             Futile.stage.AddChild(container);
 
@@ -369,9 +373,6 @@ namespace DevConsole
             queuedLines = null;
 
             BuiltInCommands.RegisterCommands();
-
-            autocomplete = new Autocomplete();
-            container.AddChild(autocomplete.Container);
 
             RunStartupCommands();
         }

@@ -382,6 +382,9 @@ namespace DevConsole
                     }
                 })
                 .Help("remove_crits [respawn: true]")
+                .AutoComplete(new string[][] {
+                    new string[] { "true", "false" }
+                })
                 .Register();
 
             #endregion Creatures
