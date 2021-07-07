@@ -62,6 +62,7 @@ namespace DevConsole
                 .Run(args =>
                 {
                     if (args.Length > 0) throw new Exception(string.Join(" ", args));
+                    throw new Exception();
                 })
                 .Help("throw [message?]")
                 .Register();

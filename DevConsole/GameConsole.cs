@@ -570,7 +570,7 @@ namespace DevConsole
                     // The full stack trace will be logged to console anyway
                     for (int i = 1; i < registerTrace.FrameCount; i++)
                     {
-                        var method = registerTrace.GetFrame(1).GetMethod();
+                        var method = registerTrace.GetFrame(i).GetMethod();
                         if (method.DeclaringType == typeof(CommandBuilder)) continue;
                         return $"{method.Name} in {method.DeclaringType.Name}";
                     }
