@@ -556,6 +556,118 @@ namespace DevConsole
                     .Register();
             }
 
+            // Locks or unlocks sandbox tokens
+            new CommandBuilder("unlock")
+                .Run(args =>
+                {
+                    if(args.Length == 0)
+                    {
+                        WriteLine("unlock list");
+                        WriteLine("unlock give [ID]");
+                        WriteLine("unlock take [ID]");
+                        return;
+                    }
+
+                    try
+                    {
+                        PlayerProgression.MiscProgressionData miscProg = UnityEngine.Object.FindObjectOfType<RainWorld>().progression.miscProgressionData;
+
+                        if(args[0] == "list")
+                        {
+                            var sandboxIDs = (MultiplayerUnlocks.SandboxUnlockID[])Enum.GetValues(typeof(MultiplayerUnlocks.SandboxUnlockID));
+                            var levelIDs = (MultiplayerUnlocks.LevelUnlockID[])Enum.GetValues(typeof(MultiplayerUnlocks.LevelUnlockID));
+                            WriteLine($"Sandbox tokens (unlocked): {string.Join(", ", sandboxIDs.Where(miscProg.GetTokenCollected).Select(id => id.ToString()).ToArray())}");
+                            WriteLine($"Sandbox tokens (locked): {string.Join(", ", sandboxIDs.Where(id => !miscProg.GetTokenCollected(id)).Select(id => id.ToString()).ToArray())}");
+                            WriteLine($"Level tokens (unlocked): {string.Join(", ", levelIDs.Where(miscProg.GetTokenCollected).Select(id => id.ToString()).ToArray())}");
+                            WriteLine($"Level tokens (locked): {string.Join(", ", levelIDs.Where(id => !miscProg.GetTokenCollected(id)).Select(id => id.ToString()).ToArray())}");
+                            return;
+                        }
+
+                        if(args[0] != "give" && args[0] != "take")
+                        {
+                            WriteLine("Unknown subcommand!");
+                            return;
+                        }
+                        bool give = args[0] == "give";
+                        MultiplayerUnlocks.SandboxUnlockID? sid = null;
+                        MultiplayerUnlocks.LevelUnlockID? lid = null;
+                        try
+                        {
+                            sid = (MultiplayerUnlocks.SandboxUnlockID)Enum.Parse(typeof(MultiplayerUnlocks.SandboxUnlockID), args[1], true);
+                        }
+                        catch { }
+
+                        try
+                        {
+                            lid = (MultiplayerUnlocks.LevelUnlockID)Enum.Parse(typeof(MultiplayerUnlocks.LevelUnlockID), args[1], true);
+                        }
+                        catch { }
+
+                        if (sid == null && lid == null)
+                        {
+                            WriteLine("No valid unlock ID was given! Try running \"unlock list\".");
+                            return;
+                        }
+
+                        switch(args[0])
+                        {
+                            case "give":
+                                if (lid != null)
+                                    miscProg.SetTokenCollected(lid.Value);
+                                else
+                                    miscProg.SetTokenCollected(sid.Value);
+                                WriteLine($"Unlocked \"{lid?.ToString() ?? sid.ToString()}\".");
+                                break;
+                            case "take":
+                                if (lid != null)
+                                    miscProg.levelTokens[(int)lid.Value] = false;
+                                else
+                                    miscProg.sandboxTokens[(int)sid.Value] = false;
+                                WriteLine($"Locked \"{lid?.ToString() ?? sid.ToString()}\".");
+                                break;
+                        }
+                    }
+                    catch
+                    {
+                        WriteLine("Failed to get or set unlock!");
+                    }
+                })
+                .Help("unlock [subcommand?] [ID?]")
+                .AutoComplete(args =>
+                {
+                    switch(args.Length)
+                    {
+                        case 0: return new string[] { "list", "give", "take" };
+                        case 1:
+                            switch(args[0])
+                            {
+                                case "list":
+                                    return null;
+                                case "give":
+                                case "take":
+                                    try
+                                    {
+                                        PlayerProgression.MiscProgressionData miscProg = UnityEngine.Object.FindObjectOfType<RainWorld>()?.progression?.miscProgressionData;
+                                        bool onlyUnlocked = args[0] == "take";
+
+                                        var sids = (MultiplayerUnlocks.SandboxUnlockID[])Enum.GetValues(typeof(MultiplayerUnlocks.SandboxUnlockID));
+                                        var lids = (MultiplayerUnlocks.LevelUnlockID[])Enum.GetValues(typeof(MultiplayerUnlocks.LevelUnlockID));
+
+                                        return sids.Where(sid => miscProg.GetTokenCollected(sid) == onlyUnlocked).Select(sid => sid.ToString())
+                                            .Concat(lids.Where(lid => miscProg.GetTokenCollected(lid) == onlyUnlocked).Select(lid => lid.ToString()));
+                                    }
+                                    catch
+                                    {
+                                        return null;
+                                    }
+                            }
+                            goto default;
+                        default:
+                            return null;
+                    }
+                })
+                .Register();
+
             #endregion Players
 
 
