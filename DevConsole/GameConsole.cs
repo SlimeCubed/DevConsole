@@ -145,8 +145,12 @@ namespace DevConsole
                     queuedLines.Add(new QueuedLine() { color = color, text = text });
                 return;
             }
-            foreach (string line in text.SplitLines())
+
+            var font = Futile.atlasManager.GetFontWithName("font");
+            foreach (string line in text.SplitLines().SelectMany(str => str.SplitLongLines(consoleWidth - consoleMargin * 2, font)))
+            {
                 instance.AddLine(line, color);
+            }
         }
 
         /// <summary>
@@ -458,8 +462,7 @@ namespace DevConsole
             }
         }
 
-        private void AddLine(string text) => AddLine(text, DefaultColor);
-
+        // Add a single line
         private void AddLine(string text, Color color)
         {
             if (silent) return;

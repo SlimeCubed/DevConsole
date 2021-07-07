@@ -716,21 +716,7 @@ namespace DevConsole
                         {
                             // Print all known pearl types
                             var names = Enum.GetNames(typeof(DataPearl.AbstractDataPearl.DataPearlType));
-                            int inLine = 0;
-                            StringBuilder sb = new StringBuilder();
-                            for (int i = 0; i < names.Length; i++)
-                            {
-                                if (inLine != 0) sb.Append(", ");
-                                sb.Append(names[i]);
-                                if (inLine++ >= 10)
-                                {
-                                    inLine = 0;
-                                    WriteLine(sb.ToString());
-                                    sb = new StringBuilder();
-                                }
-                            }
-                            if (sb.Length > 0)
-                                WriteLine(sb.ToString());
+                            WriteLine("Pearls: " + string.Join(", ", names));
                             return;
                         }
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.IO;
+using UnityEngine;
 
 namespace DevConsole
 {
@@ -112,6 +113,80 @@ namespace DevConsole
                 while ((line = sr.ReadLine()) != null)
                     yield return line;
             }
+        }
+
+        /// <summary>
+        /// Splits a string so that each segment's width is below <paramref name="maxWidth"/>.
+        /// </summary>
+        /// <param name="text">The text to split.</param>
+        /// <param name="maxWidth">The upper bound for line width.</param>
+        /// <param name="font">The font used to measure splitting.</param>
+        /// <returns>String segments that will be under <paramref name="maxWidth"/> when displayed using <paramref name="font"/>.</returns>
+        public static IEnumerable<string> SplitLongLines(this string text, float maxWidth, FFont font)
+        {
+            int sliceStart = 0;
+            int lastWhitespace = 0;
+            char lastChar = '\0';
+
+            char[] chars = text.ToCharArray();
+            int len = text.Length;
+            float x = 0f;
+            for(int i = 0; i < len; i++)
+            {
+                char c = chars[i];
+
+                FCharInfo charInfo;
+                if (font._charInfosByID.ContainsKey(c))
+                    charInfo = font._charInfosByID[c];
+                else
+                    charInfo = font._charInfosByID[0u];
+
+                // Find kerning offset
+                FKerningInfo kerningInfo = font._nullKerning;
+                for (int l = 0; l < font._kerningCount; l++)
+                {
+                    FKerningInfo fkerningInfo2 = font._kerningInfos[l];
+                    if (fkerningInfo2.first == lastChar && fkerningInfo2.second == c)
+                        kerningInfo = fkerningInfo2;
+                }
+
+                // Advance based on kerning
+                if (i == sliceStart)
+                    x = -charInfo.offsetX;
+                else
+                    x += kerningInfo.amount + font._textParams.scaledKerningOffset;
+
+                if (char.IsWhiteSpace(c))
+                {
+                    // Never split on whitespace
+                    lastWhitespace = i;
+
+                    x += charInfo.xadvance;
+                }
+                else
+                {
+                    // Split if this char would go over the edge
+                    if (x + charInfo.width > maxWidth)
+                    {
+                        int sliceEnd;
+                        if (sliceStart == lastWhitespace)
+                            sliceEnd = i;
+                        else
+                            sliceEnd = lastWhitespace + 1;
+                        yield return text.Substring(sliceStart, sliceEnd - sliceStart);
+                        sliceStart = sliceEnd;
+                        lastWhitespace = sliceEnd;
+                        i = sliceStart;
+                        x = 0;
+                    }
+                    else
+                        x += charInfo.xadvance;
+                }
+
+                lastChar = c;
+            }
+
+            yield return text.Substring(sliceStart);
         }
 
         /// <summary>
