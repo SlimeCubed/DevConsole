@@ -47,6 +47,8 @@ namespace DevConsole
         private FContainer textContainer;  // The container for the console's text
         private FSprite background;        // The background rect of the game console
         private FLabel inputLabel;         // Displays the user's command line input
+        private FSprite caret;             // The flashing sprite next to the input
+        private float caretFlash;          // Timer for the caret flashing
         private Autocomplete autocomplete; // The autocomplete interface
         private DevConsoleMod mod;         // The parent mod
 
@@ -93,6 +95,11 @@ namespace DevConsole
                 .Help("help [page: 1]")
                 .Register();
         }
+
+        /// <summary>
+        /// An event called each time a line is written to the console.
+        /// </summary>
+        public static event Action<ConsoleLineEventArgs> OnLineWritten;
 
         /// <summary>
         /// Whether the in-game console is ready to open.
@@ -271,10 +278,10 @@ namespace DevConsole
             // Do input
             if (typing && !skipInput)
             {
-                bool changed = false;
+                bool inputChanged = false;
                 foreach (var c in Input.inputString)
                 {
-                    changed = true;
+                    inputChanged = true;
                     switch (c)
                     {
                         // Remove one character when backspace is pressed
@@ -315,15 +322,13 @@ namespace DevConsole
                     }
                 }
 
-                if (changed)
-                    autocomplete.UpdateText(inputString.ToString());
-
                 bool allowACScroll = true;
 
-                // Allow scrolling through history
                 if(Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
                 {
                     allowACScroll = false;
+                    
+                    // Allow scrolling through history
                     if (history.Count > 0)
                     {
                         bool moved = false;
@@ -350,8 +355,22 @@ namespace DevConsole
                                 inputString = new StringBuilder(history[indexInHistory]);
                             else
                                 inputString = new StringBuilder();
+                            inputChanged = true;
                         }
                     }
+
+                    // Allow pasting into the command line
+                    if(Input.GetKeyDown(KeyCode.V))
+                    {
+                        inputString.Append(GetClipboard());
+                        inputChanged = true;
+                    }
+                }
+
+                if (inputChanged)
+                {
+                    caretFlash = 0f;
+                    autocomplete.UpdateText(inputString.ToString());
                 }
 
                 autocomplete.Update(inputString, allowACScroll);
@@ -381,12 +400,29 @@ namespace DevConsole
                     y += lineHeight;
                 }
 
+                // Draw caret
+                caret.SetPosition(inputLabel.LocalToOther(new Vector2(inputLabel.textRect.xMax + 1f, inputLabel.textRect.yMin + 1f), caret.container));
+                caret.isVisible = caretFlash < 0.5f;
+                caretFlash += Time.unscaledDeltaTime;
+                if (caretFlash >= 1f)
+                    caretFlash %= 1f;
+
                 container.MoveToFront();
 
                 autocomplete.Container.SetPosition(inputLabel.LocalToOther(new Vector2(inputLabel.textRect.xMax + 1f, inputLabel.textRect.yMin), autocomplete.Container.container));
                 
                 autocomplete.Container.isVisible = true;
             }
+        }
+
+        private static readonly PropertyInfo GUIUtility_systemCopyBuffer = typeof(GUIUtility).GetProperty("systemCopyBuffer", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+        private static string GetClipboard()
+        {
+            return (string)(GUIUtility_systemCopyBuffer == null ? "" : GUIUtility_systemCopyBuffer.GetValue(null, null));
+        }
+        private static void SetClipboard(string text)
+        {
+            GUIUtility_systemCopyBuffer?.SetValue(null, text, null);
         }
 
         private void Initialize()
@@ -409,11 +445,19 @@ namespace DevConsole
                 anchorX = 0f,
                 anchorY = 0f
             };
+            caret = new FSprite("pixel")
+            {
+                scaleX = 6f,
+                scaleY = 1f,
+                anchorX = 0f,
+                anchorY = 1f
+            };
 
             container.AddChild(background);
             container.AddChild(textContainer);
             container.AddChild(autocomplete.Container);
             container.AddChild(inputLabel);
+            container.AddChild(caret);
 
             container.isVisible = false;
             Futile.stage.AddChild(container);
@@ -428,7 +472,7 @@ namespace DevConsole
 
             // Very important
             Aliases.SetAlias("slug", new string[] { "echo \"jjjjjjjjjjjjjjjjjjjjg1                                     .wjjjjjjjjjjjjjjjjjjjjjjjjj\" \"jir.            1lBF:                                     1ljjh,            ,Lljjjjj\" \"ji;,            .7Bjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj2:.           .1ljjjjj\" \"jl1.                .zBjjjjjj4:                     ;IBjR:.                :Mjjjj\" \"jjjjjjE;.                                                                  .7Bjjjjjjjjj\" \"  1ljjjjjj81                                                             ,sBd;.     \" \"      .Cjjjf;.     .wjjlc.                          ,4BP:.     .YjjjjjjQ;.      \" \" .:JBjjjjH:..1ljjjjjjjjjjjj0;.               .@jjjjjjjjjjjR;,.:HjjjjjQ;,.     \" \" ,Wjf;.      ,rBjjjjjjjjjjj0;.               .7BjjjjjjjjjjM:      .7lD1.     \" \" ,7lW,           .YB@.                         .1Bjlc.           .cgh;,     \" \" ,YlW:.                         ,rBjjjjjjD:.                         ,LlM;,     \" \" ,YlW:.                                                                 ,VBi1.     \" \" ,YlW:.                                                                 ,VBi1.     \" \" ,YlW:.                                                                 ,VBi1.     \" \" ,wM;.                                                                 .:hM;,      \" \" ,YlM;.                                                                 ,7lM;,     \"" });
-
+            
             RunStartupCommands();
         }
 
@@ -471,7 +515,7 @@ namespace DevConsole
 
         private void SubmitCommand(string command, bool echo = true)
         {
-            if(echo) AddLine(" > " + command, new Color(0.7f, 0.7f, 0.7f));
+            if (echo) WriteLine(" > " + command, new Color(0.7f, 0.7f, 0.7f));
 
             string[] args = command.SplitCommandLine().ToArray();
             if (args.Length > 0)
@@ -517,6 +561,8 @@ namespace DevConsole
         private void AddLine(string text, Color color)
         {
             if (silent) return;
+
+            OnLineWritten?.Invoke(new ConsoleLineEventArgs(text, color));
 
             LineInfo line;
             if (lines.Count < maxLines)
@@ -589,6 +635,33 @@ namespace DevConsole
         private static bool GetKeyDown(Func<KeyCode, bool> orig, KeyCode code) => blockingInput ? false : orig(code);
         private static bool GetKeyUp(Func<string, bool> orig, string name) => blockingInput ? false : orig(name);
         private static bool GetKeyUp(Func<KeyCode, bool> orig, KeyCode code) => blockingInput ? false : orig(code);
+
+        /// <summary>
+        /// Holds information about a line of console text.
+        /// This is used with the <see cref="OnLineWritten"/> event.
+        /// </summary>
+        public class ConsoleLineEventArgs : EventArgs
+        {
+            /// <summary>
+            /// The line of text written to the console.
+            /// </summary>
+            /// <remarks>
+            /// One call to <see cref="WriteLine(string)"/> doesn't necessarily only produce one line of text,
+            /// since it will be split at line breaks or in very long lines.
+            /// </remarks>
+            public string Text { get; }
+
+            /// <summary>
+            /// The color of this line of text.
+            /// </summary>
+            public Color TextColor { get; }
+
+            internal ConsoleLineEventArgs(string text, Color color)
+            {
+                Text = text;
+                TextColor = color;
+            }
+        }
 
         // Info about a specific line of output
         private class LineInfo

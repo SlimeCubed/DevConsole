@@ -27,7 +27,7 @@ namespace DevConsole
         
         // Fields for the log viewer
         private static bool showingDebug = false;
-        private static FieldInfo Application_s_LogCallback = typeof(Application).GetField("s_LogCallback", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+        private static readonly FieldInfo Application_s_LogCallback = typeof(Application).GetField("s_LogCallback", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
 
         public static void RegisterCommands()
         {
