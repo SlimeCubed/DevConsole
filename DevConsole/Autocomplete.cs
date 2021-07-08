@@ -170,7 +170,7 @@ namespace DevConsole
             list.AddRange(temp);
         }
 
-        public void Update(StringBuilder inputString)
+        public void Update(StringBuilder inputString, bool allowScroll)
         {
             if (Input.GetKeyDown(KeyCode.Tab))
             {
@@ -180,9 +180,9 @@ namespace DevConsole
                     inputString.Append(acOption);
                 UpdateText(inputString.ToString());
             }
-            else if (Input.GetKeyDown(KeyCode.UpArrow))
+            else if (Input.GetKeyDown(KeyCode.UpArrow) && allowScroll)
                 CycleOptions(1);
-            else if (Input.GetKeyDown(KeyCode.DownArrow))
+            else if (Input.GetKeyDown(KeyCode.DownArrow) && allowScroll)
                 CycleOptions(-1);
         }
     }

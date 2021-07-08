@@ -22,6 +22,7 @@ namespace DevConsole
         private const int consoleHeight = 650; // Pixel height of the console's bounds
         private const int consoleWidth = 1000; // Pixel width of the console's bounds
         private const int lineHeight = 15;     // Pixel height of each line of output
+        private const int maxHistory = 100;    // Maximum number of commands to store in history before clearing them
         private const int maxLines = (consoleHeight - 2 * consoleMargin) / lineHeight - 1; // Number of lines of output that can fit on the screen
         private const string startupCommandsFile = "devConsoleStartup.txt";                // File path to a list of commands to run on init
 
@@ -35,17 +36,19 @@ namespace DevConsole
         private static readonly List<CommandHandlerInfo> commands = new List<CommandHandlerInfo>();
         private static List<QueuedLine> queuedLines = new List<QueuedLine>(); // Lines sent before init
 
-        private bool initialized;         // True once the console has been created - it must wait for Futile to init
-        private bool typing;              // True when input is redirected to the command line
-        private bool silent;              // True when all logs to the console should be hidden
-        private FContainer container;     // The container for all game console nodes
-        private FContainer textContainer; // The container for the console's text
-        private FSprite background;       // The background rect of the game console
-        private FLabel inputLabel;        // Displays the user's command line input
         private StringBuilder inputString = new StringBuilder();        // Stores the user's command line input
         private readonly Queue<LineInfo> lines = new Queue<LineInfo>(); // Stores the most recent output lines added
-        private Autocomplete autocomplete;
-        private DevConsoleMod mod;
+        private readonly List<string> history = new List<string>();     // Stores the most recent commands so they may be traversed
+        private int indexInHistory;        // Which entry in history the user is viewing, or -1 if this command was written from scratch
+        private bool initialized;          // True once the console has been created - it must wait for Futile to init
+        private bool typing;               // True when input is redirected to the command line
+        private bool silent;               // True when all logs to the console should be hidden
+        private FContainer container;      // The container for all game console nodes
+        private FContainer textContainer;  // The container for the console's text
+        private FSprite background;        // The background rect of the game console
+        private FLabel inputLabel;         // Displays the user's command line input
+        private Autocomplete autocomplete; // The autocomplete interface
+        private DevConsoleMod mod;         // The parent mod
 
         /// <summary>
         /// Registers critical built-in commands.
@@ -291,7 +294,16 @@ namespace DevConsole
                         case '\n':
                         case '\r':
 
-                            SubmitCommand(inputString.ToString().Trim());
+                            string command = inputString.ToString().Trim();
+
+                            // Add command to history
+                            if (history.Count >= maxHistory) history.RemoveAt(0);
+                            if (command != "")
+                                history.Add(command);
+                            indexInHistory = -1;
+
+                            // Execute
+                            SubmitCommand(command);
                             inputString = new StringBuilder();
 
                             break;
@@ -306,7 +318,43 @@ namespace DevConsole
                 if (changed)
                     autocomplete.UpdateText(inputString.ToString());
 
-                autocomplete.Update(inputString);
+                bool allowACScroll = true;
+
+                // Allow scrolling through history
+                if(Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
+                {
+                    allowACScroll = false;
+                    if (history.Count > 0)
+                    {
+                        bool moved = false;
+                        if (Input.GetKeyDown(KeyCode.UpArrow))
+                        {
+                            if (indexInHistory > 0)
+                                indexInHistory--;
+                            else
+                                indexInHistory = history.Count - 1;
+                            moved = true;
+                        }
+                        else if (Input.GetKeyDown(KeyCode.DownArrow))
+                        {
+                            indexInHistory = (indexInHistory + 1) % history.Count;
+                            moved = true;
+                        }
+
+                        if (moved)
+                        {
+                            if (indexInHistory >= history.Count)
+                                indexInHistory = history.Count - 1;
+
+                            if (indexInHistory >= 0)
+                                inputString = new StringBuilder(history[indexInHistory]);
+                            else
+                                inputString = new StringBuilder();
+                        }
+                    }
+                }
+
+                autocomplete.Update(inputString, allowACScroll);
                 
                 // Disallow inputs for the rest of the frame
                 CaptureInput(true);
@@ -377,6 +425,9 @@ namespace DevConsole
             queuedLines = null;
 
             BuiltInCommands.RegisterCommands();
+
+            // Very important
+            Aliases.SetAlias("slug", new string[] { "echo \"jjjjjjjjjjjjjjjjjjjjg1                                     .wjjjjjjjjjjjjjjjjjjjjjjjjj\" \"jir.            1lBF:                                     1ljjh,            ,Lljjjjj\" \"ji;,            .7Bjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj2:.           .1ljjjjj\" \"jl1.                .zBjjjjjj4:                     ;IBjR:.                :Mjjjj\" \"jjjjjjE;.                                                                  .7Bjjjjjjjjj\" \"  1ljjjjjj81                                                             ,sBd;.     \" \"      .Cjjjf;.     .wjjlc.                          ,4BP:.     .YjjjjjjQ;.      \" \" .:JBjjjjH:..1ljjjjjjjjjjjj0;.               .@jjjjjjjjjjjR;,.:HjjjjjQ;,.     \" \" ,Wjf;.      ,rBjjjjjjjjjjj0;.               .7BjjjjjjjjjjM:      .7lD1.     \" \" ,7lW,           .YB@.                         .1Bjlc.           .cgh;,     \" \" ,YlW:.                         ,rBjjjjjjD:.                         ,LlM;,     \" \" ,YlW:.                                                                 ,VBi1.     \" \" ,YlW:.                                                                 ,VBi1.     \" \" ,YlW:.                                                                 ,VBi1.     \" \" ,wM;.                                                                 .:hM;,      \" \" ,YlM;.                                                                 ,7lM;,     \"" });
 
             RunStartupCommands();
         }
