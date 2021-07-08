@@ -201,6 +201,126 @@ namespace DevConsole
                 })
                 .Register();
 
+            {
+                BF bf = null;
+                var flags = new string[]
+                {
+                    "u8", "u16", "u32", "u64",
+                    "neg_cells", "no_neg_cells",
+                    "fast"
+                };
+                string Escape(string input)
+                {
+                    StringBuilder o = new StringBuilder();
+                    bool esc = false;
+                    foreach(var c in input)
+                    {
+                        if (esc)
+                        {
+                            string escapeCode;
+                            switch(c)
+                            {
+                                case '\\': escapeCode = "\\"; break;
+                                case 'r': escapeCode = "\r"; break;
+                                case 'n': escapeCode = "\n"; break;
+                                case '0': escapeCode = "\0"; break;
+                                default: escapeCode = "\\" + c.ToString(); break;
+                            }
+                            o.Append(escapeCode);
+                            esc = false;
+                        }
+                        else
+                        {
+                            if (c == '\\') esc = true;
+                            else o.Append(c);
+                        }
+                    }
+                    if (esc) o.Append("\\");
+                    return o.ToString();
+                }
+
+                new CommandBuilder("bf")
+                    .Run(args =>
+                    {
+                        try
+                        {
+                            if (bf?.Running ?? false)
+                            {
+                                switch(args[0])
+                                {
+                                    case "abort":
+                                        bf.Abort();
+                                        bf = null;
+                                        break;
+
+                                    case "input":
+                                        foreach (var line in args.Skip(1))
+                                            bf.Input(Escape(line) + '\n');
+                                        break;
+
+                                    case "line":
+                                        bf.Input("\n");
+                                        break;
+
+                                    default:
+                                        foreach (var line in args)
+                                            bf.Input(Escape(line) + '\n');
+                                        break;
+                                }
+                            }
+                            else
+                                bf = new BF(args[args.Length - 1], args.Take(args.Length - 1).ToArray());
+                        }
+                        catch
+                        {
+                            WriteLine("Failed to start BF!");
+                        }
+                    })
+                    .AutoComplete(args =>
+                    {
+                        if (bf?.Running ?? false)
+                        {
+                            if (args.Length == 0)
+                                return new string[] { "abort", "input", "line" };
+                            return null;
+                        }
+                        if (args.All(arg => Array.IndexOf(flags, arg) != -1)) return flags.Concat(new string[] { "+[-->-[>>+>-----<<]<--<---]>-.>>>+.>>..+++[.>]<<<<.+++.------.<<-.>>>>+." });
+                        return null;
+                    })
+                    .HideHelp() // Too cursed for the general public
+                    .Register();
+
+                // Change the console's font
+                new CommandBuilder("font")
+                    .Run(args =>
+                    {
+                        if (args.Length == 0)
+                        {
+                            WriteLine("Available fonts: " + string.Join(", ", Futile.atlasManager._fontsByName.Keys.ToArray()));
+                            WriteLine("Current font: " + CurrentFont);
+                        }
+                        else
+                        {
+                            try
+                            {
+                                CurrentFont = Futile.atlasManager._fontsByName.Keys.First(fontName => fontName.Equals(args[0], StringComparison.OrdinalIgnoreCase));
+                            }
+                            catch
+                            {
+                                WriteLine("Failed to set font!");
+                            }
+                        }
+
+                    })
+                    .Help("font [font_name?]")
+                    .AutoComplete(args =>
+                    {
+                        if (args.Length == 0) return Futile.atlasManager._fontsByName.Keys.ToArray();
+                        return null;
+                    })
+                    .Register();
+            }
+
             #endregion Misc
 
 

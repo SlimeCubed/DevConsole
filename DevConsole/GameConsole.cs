@@ -31,10 +31,11 @@ namespace DevConsole
 
         private static GameConsole instance;        // The game's console instance
         private static List<IDetour> inputBlockers; // A list of detours that cause input to be ignored
+        private static string currentFont = "font"; // Backing field for CurrentFont
         private static bool blockingInput = false;  // True while the input blockers are active
         private static bool isGamePaused = false;   // True while the game is paused
         private static readonly List<CommandHandlerInfo> commands = new List<CommandHandlerInfo>();
-        private static List<QueuedLine> queuedLines = new List<QueuedLine>(); // Lines sent before init
+        private static List<QueuedLine> queuedLines = new List<QueuedLine>(); // Lines sent before init or from another thread
 
         private StringBuilder inputString = new StringBuilder();        // Stores the user's command line input
         private readonly Queue<LineInfo> lines = new Queue<LineInfo>(); // Stores the most recent output lines added
@@ -128,6 +129,27 @@ namespace DevConsole
         /// </summary>
         public static Color BackColor => backColor;
 
+        /// <summary>
+        /// Gets or sets the font used for the console.
+        /// Changing the font will clear the console.
+        /// </summary>
+        public static string CurrentFont
+        {
+            get => currentFont;
+            set
+            {
+                if (value == null) throw new ArgumentNullException(nameof(value), "Font name may not be null!");
+                if (value == currentFont) return;
+
+                if (Futile.atlasManager?.GetFontWithName(value) != null)
+                {
+                    currentFont = value;
+                    Clear();
+                    WriteHeader();
+                }
+            }
+        }
+
         internal static void Apply(DevConsoleMod mod)
         {
             instance = new GameObject("Dev Console").AddComponent<GameConsole>();
@@ -151,15 +173,45 @@ namespace DevConsole
 
             if (Futile.instance == null || Futile.atlasManager == null)
             {
-                if(!instance?.silent ?? true)
-                    queuedLines.Add(new QueuedLine() { color = color, text = text });
+                if (!instance?.silent ?? true)
+                {
+                    lock (queuedLines)
+                    {
+                        queuedLines.Add(new QueuedLine() { color = color, text = text });
+                    }
+                }
                 return;
             }
 
-            var font = Futile.atlasManager.GetFontWithName("font");
+            var font = Futile.atlasManager.GetFontWithName(CurrentFont);
             foreach (string line in text.SplitLines().SelectMany(str => str.SplitLongLines(consoleWidth - consoleMargin * 2, font)))
             {
                 instance.AddLine(line, color);
+            }
+        }
+
+        /// <summary>
+        /// <see cref="WriteLine(string)"/>, but thread safe. Use the other one when possible.
+        /// </summary>
+        /// <param name="text">The text to write.</param>
+        public static void WriteLineThreaded(string text) => WriteLineThreaded(text, DefaultColor);
+
+        /// <summary>
+        /// <see cref="WriteLine(string, Color)"/>, but thread safe. Use the other one when possible.
+        /// </summary>
+        /// <param name="text">The text to write.</param>
+        /// <param name="color">The color of the text.</param>
+        public static void WriteLineThreaded(string text, Color color)
+        {
+            lock (queuedLines)
+            {
+                queuedLines.Add(new QueuedLine()
+                {
+                    text = text,
+                    color = color
+                });
+                if (queuedLines.Count > maxLines)
+                    queuedLines.RemoveAt(0);
             }
         }
 
@@ -190,13 +242,27 @@ namespace DevConsole
         /// </summary>
         public static void Clear()
         {
-            queuedLines?.Clear();
+            lock (queuedLines)
+            {
+                queuedLines.Clear();
+            }
 
             if (instance == null) return;
 
             foreach (var line in instance.lines)
                 line.label.RemoveFromContainer();
             instance.lines.Clear();
+
+            // Make a new label with the new font
+            var newLabel = new FLabel(CurrentFont, "")
+            {
+                anchorX = 0f,
+                anchorY = 0f
+            };
+            instance.inputLabel.container.AddChild(newLabel);
+            newLabel.MoveBehindOtherNode(instance.inputLabel);
+            instance.inputLabel.RemoveFromContainer();
+            instance.inputLabel = newLabel;
         }
 
         /// <summary>
@@ -251,6 +317,17 @@ namespace DevConsole
                 Initialize();
             }
 
+            // Print out lines sent from another thread or before init
+            lock (queuedLines)
+            {
+                if (queuedLines.Count > 0)
+                {
+                    foreach (var line in queuedLines)
+                        WriteLine(line.text, line.color);
+                    queuedLines.Clear();
+                }
+            }
+
             // Run bound commands
             Bindings.Run();
 
@@ -278,8 +355,15 @@ namespace DevConsole
             // Do input
             if (typing && !skipInput)
             {
+                string input;
+                // Allow pasting into the command line
+                if ((Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) && Input.GetKeyDown(KeyCode.V))
+                    input = GetClipboard().Replace("\r\n", "\n");
+                else
+                    input = Input.inputString;
+
                 bool inputChanged = false;
-                foreach (var c in Input.inputString)
+                foreach (var c in input)
                 {
                     inputChanged = true;
                     switch (c)
@@ -298,8 +382,8 @@ namespace DevConsole
                             break;
 
                         // Submit a command when enter is pressed
-                        case '\n':
                         case '\r':
+                        case '\n':
 
                             string command = inputString.ToString().Trim();
 
@@ -358,13 +442,6 @@ namespace DevConsole
                             inputChanged = true;
                         }
                     }
-
-                    // Allow pasting into the command line
-                    if(Input.GetKeyDown(KeyCode.V))
-                    {
-                        inputString.Append(GetClipboard());
-                        inputChanged = true;
-                    }
                 }
 
                 if (inputChanged)
@@ -390,7 +467,8 @@ namespace DevConsole
                 int y = consoleMargin;
                 inputLabel.x = consoleMargin;
                 inputLabel.y = y;
-                inputLabel.text = " > " + inputString;
+                string str = inputString.ToString();
+                inputLabel.text = " > " + str.Substring(0, Math.Min(str.Length, 1000));
                 y += lineHeight;
 
                 foreach (var line in lines.Reverse())
@@ -440,7 +518,7 @@ namespace DevConsole
                 scaleY = consoleHeight,
                 color = BackColor
             };
-            inputLabel = new FLabel("font", "")
+            inputLabel = new FLabel(CurrentFont, "")
             {
                 anchorX = 0f,
                 anchorY = 0f
@@ -462,11 +540,9 @@ namespace DevConsole
             container.isVisible = false;
             Futile.stage.AddChild(container);
 
-            WriteHeader();
+            CustomFonts.Load();
 
-            foreach (var line in queuedLines)
-                WriteLine(line.text, line.color);
-            queuedLines = null;
+            WriteHeader();
 
             BuiltInCommands.RegisterCommands();
 
@@ -568,7 +644,7 @@ namespace DevConsole
             if (lines.Count < maxLines)
             {
                 line = new LineInfo();
-                line.label = new FLabel("font", "")
+                line.label = new FLabel(CurrentFont, "")
                 {
                     anchorX = 0f,
                     anchorY = 0f,

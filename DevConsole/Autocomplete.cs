@@ -62,7 +62,7 @@ namespace DevConsole
 
                 // Create the label
                 var option = options[i];
-                var label = new FLabel("font", option);
+                var label = new FLabel(GameConsole.CurrentFont, option);
                 label.anchorX = 0f;
                 label.anchorY = 0f;
                 label.x = 0f;

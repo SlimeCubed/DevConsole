@@ -67,6 +67,7 @@
   <ItemGroup>
     <Compile Include="Aliases.cs" />
     <Compile Include="Autocomplete.cs" />
+    <Compile Include="BF.cs" />
     <Compile Include="BindEvents\IBindEvent.cs" />
     <Compile Include="BindEvents\KeyCodeEvent.cs" />
     <Compile Include="BindEvents\KeyMode.cs" />
@@ -80,9 +81,16 @@
     <Compile Include="Config\ConsoleConfig.cs" />
     <Compile Include="DevConsoleMod.cs" />
     <Compile Include="Commands\ICommandHandler.cs" />
+    <Compile Include="CustomFonts.cs" />
     <Compile Include="GameConsole.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="StringEx.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Fonts\devconsolas.fnt" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Fonts\devconsolas.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
