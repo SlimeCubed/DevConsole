@@ -795,6 +795,49 @@ namespace DevConsole
                 .RunGame((game, args) => game.GameOver(null))
                 .Register();
 
+            // Toggles the Mark
+            new CommandBuilder("the_mark")
+                .RunGame((game, args) =>
+                {
+                    try
+                    {
+                        var dpsd = game.GetStorySession.saveState.deathPersistentSaveData;
+                        dpsd.theMark = !dpsd.theMark;
+                        if (dpsd.theMark) WriteLine("Given the Mark!");
+                        else WriteLine("Taken the Mark!");
+                    }
+                    catch
+                    {
+                        WriteLine("Failed to toggle the Mark!");
+                    }
+                })
+                .Register();
+
+            // Toggles the Glow
+            new CommandBuilder("the_glow")
+                .RunGame((game, args) =>
+                {
+                    try
+                    {
+                        var save = game.GetStorySession.saveState;
+                        save.theGlow = !save.theGlow;
+                        foreach(var ply in game.Players)
+                        {
+                            if (ply?.realizedObject is Player realPly)
+                                realPly.glowing = save.theGlow;
+                        }
+                        if (save.theGlow) WriteLine("Given the Glow!");
+                        else WriteLine("Taken the Glow!");
+                    }
+                    catch
+                    {
+                        WriteLine("Failed to toggle the Glow!");
+                    }
+                })
+                .Register();
+
+
+
             #endregion Players
 
 
