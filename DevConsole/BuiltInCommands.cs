@@ -358,7 +358,7 @@ namespace DevConsole
                         }
                     }
                 })
-                .Help("target_pos [target?] [arg?] ...")
+                .Help("target_pos [target?] [arg?]")
                 .AutoComplete(new string[][] {
                     new string[] { "player", "mouse", "camera" }
                 })
