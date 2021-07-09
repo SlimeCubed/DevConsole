@@ -130,6 +130,16 @@ namespace DevConsole
         public static Color BackColor => backColor;
 
         /// <summary>
+        /// If a command operates on a position, it should be focused on this position inside of <see cref="SpawnRoom"/>.
+        /// </summary>
+        public static Vector2 SpawnPos => Positioning.pos.pos;
+
+        /// <summary>
+        /// If a command operators on a position, it should be focused on <see cref="SpawnPos"/> inside of this room.
+        /// </summary>
+        public static Room SpawnRoom => Positioning.pos.room;
+
+        /// <summary>
         /// Gets or sets the font used for the console.
         /// Changing the font will clear the console.
         /// </summary>
@@ -334,6 +344,9 @@ namespace DevConsole
 
             // Run bound commands
             Bindings.Run();
+
+            // Update target position
+            Positioning.Update();
 
             CaptureInput(false);
 

@@ -321,6 +321,49 @@ namespace DevConsole
                     .Register();
             }
 
+            // Control positioning of commands
+            new CommandBuilder("target_pos")
+                .Run(args =>
+                {
+                    if (args.Length == 0)
+                    {
+                        WriteLine("target_pos player [player_num: 0]");
+                        WriteLine("target_pos mouse [camera_num: 0]");
+                        WriteLine("target_pos camera [camera_num: 0]");
+                    }
+                    else
+                    {
+                        try
+                        {
+                            int num = (args.Length > 1) ? int.Parse(args[1]) : 0;
+                            switch (args[0])
+                            {
+                                case "player":
+                                    Positioning.getPos = game => new Positioning.RoomPos(game.Players[num].realizedObject.room, game.Players[num].realizedObject.firstChunk.pos);
+                                    WriteLine("Commands will target the player.");
+                                    break;
+                                case "mouse":
+                                    Positioning.getPos = game => new Positioning.RoomPos(game.cameras[num].room, game.cameras[num].pos + (Vector2)Input.mousePosition);
+                                    WriteLine("Commands will target the mouse.");
+                                    break;
+                                case "camera":
+                                    Positioning.getPos = game => new Positioning.RoomPos(game.cameras[num].room, game.cameras[num].pos + game.cameras[num].sSize / 2f);
+                                    WriteLine("Commands will target the center of the camera.");
+                                    break;
+                            }
+                        }
+                        catch
+                        {
+                            WriteLine("Failed to set spawning position!");
+                        }
+                    }
+                })
+                .Help("target_pos [target?] [arg?] ...")
+                .AutoComplete(new string[][] {
+                    new string[] { "player", "mouse", "camera" }
+                })
+                .Register();
+
             #endregion Misc
 
 
@@ -452,8 +495,6 @@ namespace DevConsole
                 {
                     try
                     {
-                        var player = game.Players[0].realizedCreature as Player;
-
                         // Find the creature to spawn, first by exact name then by creature type enum
                         CreatureTemplate template = StaticWorld.creatureTemplates.FirstOrDefault(t => t.name.Equals(args[0], StringComparison.OrdinalIgnoreCase));
                         if (template == null) template = StaticWorld.GetCreatureTemplate((CreatureTemplate.Type)Enum.Parse(typeof(CreatureTemplate.Type), args[0], true));
@@ -462,7 +503,7 @@ namespace DevConsole
                             game.world,
                             template,
                             null,
-                            player.coord,
+                            SpawnRoom.GetWorldCoordinate(SpawnPos),
                             game.GetNewID()
                         ).RealizeInRoom();
                     }
@@ -850,8 +891,7 @@ namespace DevConsole
                 {
                     try
                     {
-                        var player = game.Players[0].realizedCreature as Player;
-                        var pos = player.coord;
+                        var pos = SpawnRoom.GetWorldCoordinate(SpawnPos);
                         var id = game.GetNewID();
                         var type = (AbstractPhysicalObject.AbstractObjectType)Enum.Parse(typeof(AbstractPhysicalObject.AbstractObjectType), args[0], true);
                         AbstractPhysicalObject apo = null;
@@ -891,13 +931,12 @@ namespace DevConsole
                         }
 
                         var type = (DataPearl.AbstractDataPearl.DataPearlType)Enum.Parse(typeof(DataPearl.AbstractDataPearl.DataPearlType), args[0], true);
-                        var player = (Player)game.Players[0].realizedCreature;
-                        var pearl = new DataPearl.AbstractDataPearl(game.world, AbstractPhysicalObject.AbstractObjectType.DataPearl, null, player.coord, game.GetNewID(), -1, -1, null, type);
+                        var pearl = new DataPearl.AbstractDataPearl(game.world, AbstractPhysicalObject.AbstractObjectType.DataPearl, null, SpawnRoom.GetWorldCoordinate(SpawnPos), game.GetNewID(), -1, -1, null, type);
 
-                        player.room.abstractRoom.AddEntity(pearl);
-                        pearl.pos = player.coord;
+                        SpawnRoom.abstractRoom.AddEntity(pearl);
+                        pearl.pos = SpawnRoom.GetWorldCoordinate(SpawnPos);
                         pearl.RealizeInRoom();
-                        pearl.realizedObject.firstChunk.HardSetPosition(player.mainBodyChunk.pos);
+                        pearl.realizedObject.firstChunk.HardSetPosition(SpawnPos);
 
                         WriteLine($"Spawned pearl: {type}");
                     }
