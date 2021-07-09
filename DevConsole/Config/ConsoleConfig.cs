@@ -16,29 +16,6 @@ namespace DevConsole
             {
                 Vector2 listPos = new Vector2(300f, 450f);
 
-                // This can't capture any CM types or else it generates a type that can't load without CM
-                // The more you know
-                void AddToggle(OptionInterface oi, string key, string name, string desc, bool defaultValue)
-                {
-                    const float width = 150f;
-
-                    // Add default option to the end of the description
-                    desc = $"{desc} Defaults to {defaultValue}.";
-
-                    oi.Tabs[0].AddItems(
-                        new OpCheckBox(listPos - new Vector2(width / 2f, 12f), key, defaultValue)
-                        {
-                            description = desc
-                        },
-                        new OpLabel(listPos - new Vector2(width / 2f - 24f - 5f, 12f), new Vector2(width - 24f - 5f, 24f), name, FLabelAlignment.Right)
-                        {
-                            verticalAlignment = OpLabel.LabelVAlignment.Center,
-                            description = desc
-                        }
-                    );
-                    listPos.y -= 29f;
-                }
-
                 self.Tabs = new OpTab[]
                 {
                     new OpTab("config")
@@ -50,13 +27,51 @@ namespace DevConsole
                     new OpLabel(new Vector2(300f - 100f, 485f), new Vector2(200f, 15f), $"version {DevConsoleMod.versionString}") { color = Color.gray }
                 );
 
-                // Toggles
-                AddToggle(self, "devconsole.autopause", "Pause when open", "Pause the game while the console is open.", false);
+                // Options
+                string desc;
+
+                // Autopause
+                desc = "Pause the game while the console is open.";
+                self.Tabs[0].AddItems(
+                    new OpLabel(listPos - new Vector2(102f, 0f), new Vector2(100f, 24f), "Pause when open")
+                    {
+                        alignment = FLabelAlignment.Right,
+                        verticalAlignment = OpLabel.LabelVAlignment.Center,
+                        description = desc
+                    },
+                    new OpCheckBox(listPos + new Vector2(2f, 0f), "devconsole.autopause", false)
+                    {
+                        description = desc
+                    }
+                );
+                listPos.y -= 29f;
+
+                // Font
+                desc = "The default font to use in the console. Some don't look good.";
+                self.Tabs[0].AddItems(
+                    new OpLabel(listPos - new Vector2(102f, 0f), new Vector2(100f, 24f), "Font")
+                    {
+                        alignment = FLabelAlignment.Right,
+                        verticalAlignment = OpLabel.LabelVAlignment.Center,
+                        description = desc
+                    },
+                    new OpComboBox(listPos + new Vector2(2f, 0f), 100f, "devconsole.font", Futile.atlasManager._fontsByName.Keys.ToArray(), "font")
+                    {
+                        description = desc
+                    }
+                );
+                listPos.y -= 29f;
             }
 
             public static void ConfigOnChange(OptionInterface self)
             {
                 DevConsoleMod.autopause = OptionInterface.config.GetBool("devconsole.autopause");
+                try
+                {
+                    if (OptionInterface.config.TryGetValue("devconsole.font", out string font))
+                        GameConsole.CurrentFont = font;
+                }
+                catch {}
             }
 
             private static bool GetBool(this Dictionary<string, string> self, string key, bool defaultValue = false)
