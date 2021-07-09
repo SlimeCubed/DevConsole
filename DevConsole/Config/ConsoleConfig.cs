@@ -66,12 +66,8 @@ namespace DevConsole
             public static void ConfigOnChange(OptionInterface self)
             {
                 DevConsoleMod.autopause = OptionInterface.config.GetBool("devconsole.autopause");
-                try
-                {
-                    if (OptionInterface.config.TryGetValue("devconsole.font", out string font))
-                        GameConsole.CurrentFont = font;
-                }
-                catch {}
+                if (OptionInterface.config.TryGetValue("devconsole.font", out string font))
+                    GameConsole.CurrentFont = font;
             }
 
             private static bool GetBool(this Dictionary<string, string> self, string key, bool defaultValue = false)

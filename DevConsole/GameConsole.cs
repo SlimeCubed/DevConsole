@@ -135,18 +135,23 @@ namespace DevConsole
         /// </summary>
         public static string CurrentFont
         {
-            get => currentFont;
+            get
+            {
+                // Fonts may load in at any time
+                // Use "font" as a fallback if the current font isn't loaded
+                if (Futile.atlasManager?._fontsByName.ContainsKey(currentFont) ?? false)
+                    return currentFont;
+                else
+                    return "font";
+            }
             set
             {
+                UnityEngine.Debug.Log("Setting font: " + CurrentFont);
                 if (value == null) throw new ArgumentNullException(nameof(value), "Font name may not be null!");
                 if (value == currentFont) return;
 
-                if (Futile.atlasManager?.GetFontWithName(value) != null)
-                {
-                    currentFont = value;
-                    Clear();
-                    WriteHeader();
-                }
+                currentFont = value;
+                Clear();
             }
         }
 
@@ -171,7 +176,7 @@ namespace DevConsole
         {
             if (text == null) text = "null";
 
-            if (Futile.instance == null || Futile.atlasManager == null)
+            if (!Initialized)
             {
                 if (!instance?.silent ?? true)
                 {
@@ -247,7 +252,7 @@ namespace DevConsole
                 queuedLines.Clear();
             }
 
-            if (instance == null) return;
+            if (!Initialized) return;
 
             foreach (var line in instance.lines)
                 line.label.RemoveFromContainer();
@@ -506,9 +511,15 @@ namespace DevConsole
         private void Initialize()
         {
             initialized = true;
+
+            UnityEngine.Debug.Log("Before init with font: " + CurrentFont);
+
+            CustomFonts.Load();
             container = new FContainer();
             textContainer = new FContainer();
             autocomplete = new Autocomplete();
+
+            UnityEngine.Debug.Log("Init with font: " + CurrentFont);
 
             background = new FSprite("pixel")
             {
@@ -539,8 +550,6 @@ namespace DevConsole
 
             container.isVisible = false;
             Futile.stage.AddChild(container);
-
-            CustomFonts.Load();
 
             WriteHeader();
 
