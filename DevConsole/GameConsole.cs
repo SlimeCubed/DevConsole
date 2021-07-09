@@ -146,7 +146,6 @@ namespace DevConsole
             }
             set
             {
-                UnityEngine.Debug.Log("Setting font: " + CurrentFont);
                 if (value == null) throw new ArgumentNullException(nameof(value), "Font name may not be null!");
                 if (value == currentFont) return;
 
@@ -512,14 +511,10 @@ namespace DevConsole
         {
             initialized = true;
 
-            UnityEngine.Debug.Log("Before init with font: " + CurrentFont);
-
             CustomFonts.Load();
             container = new FContainer();
             textContainer = new FContainer();
             autocomplete = new Autocomplete();
-
-            UnityEngine.Debug.Log("Init with font: " + CurrentFont);
 
             background = new FSprite("pixel")
             {
