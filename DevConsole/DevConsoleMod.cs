@@ -8,7 +8,7 @@ namespace DevConsole
 {
     internal partial class DevConsoleMod : PartialityMod
     {
-        public const string versionString = "0.1.0";
+        public const string versionString = "0.2.0";
         public int version = 0;
         public string updateURL = "http://beestuff.pythonanywhere.com/audb/api/mods/6/1";
         public string keyE = "AQAB";
