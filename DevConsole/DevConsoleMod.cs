@@ -3,6 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Partiality.Modloader;
+using System.Security;
+using System.Security.Permissions;
+
+[assembly: SecurityPermission(SecurityAction.RequestMinimum, SkipVerification = true)]
+[module: UnverifiableCode]
 
 namespace DevConsole
 {
