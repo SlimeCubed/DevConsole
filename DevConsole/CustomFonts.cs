@@ -22,7 +22,7 @@ namespace DevConsole
 
         private static FFont LoadFont(string name, string configPath, float offsetX, float offsetY, FTextParams textParams)
         {
-            if (Futile.atlastManager._fontsByName.TryGetValue(name, out var possibleFont)) 
+            if (Futile.atlasManager._fontsByName.TryGetValue(name, out var possibleFont)) 
             {
                 return possibleFont;
             }
