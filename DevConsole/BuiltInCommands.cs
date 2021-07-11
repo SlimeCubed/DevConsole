@@ -498,14 +498,16 @@ namespace DevConsole
                         // Find the creature to spawn, first by exact name then by creature type enum
                         CreatureTemplate template = StaticWorld.creatureTemplates.FirstOrDefault(t => t.name.Equals(args[0], StringComparison.OrdinalIgnoreCase));
                         if (template == null) template = StaticWorld.GetCreatureTemplate((CreatureTemplate.Type)Enum.Parse(typeof(CreatureTemplate.Type), args[0], true));
-                        
-                        new AbstractCreature(
+
+                        var crit = new AbstractCreature(
                             game.world,
                             template,
                             null,
                             SpawnRoom.GetWorldCoordinate(SpawnPos),
                             game.GetNewID()
-                        ).RealizeInRoom();
+                        );
+                        SpawnRoom.abstractRoom.AddEntity(crit);
+                        crit.RealizeInRoom();
                     }
                     catch { WriteLine("Failed to spawn creature!"); }
                 })
@@ -906,6 +908,7 @@ namespace DevConsole
                                 if (AbstractConsumable.IsTypeConsumable(type)) apo = new AbstractConsumable(game.world, type, null, pos, id, -1, -1, null);
                                 else apo = new AbstractPhysicalObject(game.world, type, null, pos, id); break;
                         }
+                        SpawnRoom.abstractRoom.AddEntity(apo);
                         apo.RealizeInRoom();
                     }
                     catch { WriteLine("Failed to spawn object!"); }
