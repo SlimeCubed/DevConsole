@@ -499,19 +499,28 @@ namespace DevConsole
                         CreatureTemplate template = StaticWorld.creatureTemplates.FirstOrDefault(t => t.name.Equals(args[0], StringComparison.OrdinalIgnoreCase));
                         if (template == null) template = StaticWorld.GetCreatureTemplate((CreatureTemplate.Type)Enum.Parse(typeof(CreatureTemplate.Type), args[0], true));
 
+                        EntityID? id = null;
+                        if(args.Length > 1)
+                        {
+                            if (args[1].Contains('.'))
+                                id = EntityID.FromString(args[1]);
+                            else
+                                id = new EntityID(0, int.Parse(args[1]));
+                        }
+
                         var crit = new AbstractCreature(
                             game.world,
                             template,
                             null,
                             SpawnRoom.GetWorldCoordinate(SpawnPos),
-                            game.GetNewID()
+                            id ?? game.GetNewID()
                         );
                         SpawnRoom.abstractRoom.AddEntity(crit);
                         crit.RealizeInRoom();
                     }
                     catch { WriteLine("Failed to spawn creature!"); }
                 })
-                .Help("creature [type]")
+                .Help("creature [type] [ID?]")
                 .AutoComplete(new string[][] {
                     Enum.GetNames(typeof(CreatureTemplate.Type)).Concat(StaticWorld.creatureTemplates.Select(t => t.name)).ToArray()
                 })
