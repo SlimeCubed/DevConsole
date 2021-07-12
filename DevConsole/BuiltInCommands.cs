@@ -879,7 +879,57 @@ namespace DevConsole
                 })
                 .Register();
 
+            new CommandBuilder("food")
+                .RunGame((game, args) =>
+                {
+                    try
+                    {
+                        void AddFood(Player ply, int add)
+                        {
+                            if (add < 0)
+                            {
+                                add = Math.Max(add, -ply.playerState.foodInStomach);
+                                foreach(var cam in ply.room.game.cameras)
+                                {
+                                    if(cam.hud.owner == ply && cam.hud.foodMeter is HUD.FoodMeter fm)
+                                    {
+                                        for (int i = add; i < 0; i++)
+                                        {
+                                            if (fm.showCount > 0)
+                                                fm.circles[--fm.showCount].EatFade();
+                                        }
+                                    }
+                                }
+                            }
+                            ply.AddFood(add);
+                        }
 
+                        int amount = int.Parse(args[0]);
+                        int plyNum = args.Length > 1 ? int.Parse(args[1]) : -1;
+                        if(args.Length > 1)
+                        {
+                            AddFood(game.Players[int.Parse(args[1])].realizedObject as Player, amount);
+                        }
+                        else
+                        {
+                            foreach (var ply in game.Players.Select(ply => ply.realizedObject as Player))
+                            {
+                                if (ply == null) continue;
+                                AddFood(ply, amount);
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        WriteLine("Failed to add food!");
+                    }
+                })
+                .Help("food [add_amount] [player?]")
+                .AutoComplete(new string[][] {
+                    null,
+                    new string[] { "0", "1", "2", "3" }
+                })
+                .Register();
 
             #endregion Players
 
