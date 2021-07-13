@@ -608,7 +608,11 @@ namespace DevConsole
                             return noclip ? 100000f : orig(self, horizontalPos);
                         }
 
+#if BEPCOMP
+                        Room.Tile RemoveTiles(On.Room.orig_GetTile_int_int orig, Room self, int x, int y)
+#else
                         Room.Tile RemoveTiles(On.Room.orig_GetTile_3 orig, Room self, int x, int y)
+#endif
                         {
                             return noclip ? new Room.Tile(x, y, Room.Tile.TerrainType.Air, false, false, false, 0, 0) : orig(self, x, y);
                         }
@@ -617,7 +621,11 @@ namespace DevConsole
                         {
                             hooks.Add(new Hook(typeof(Player).GetMethod("Update"), (On.Player.hook_Update)NoClip));
                             hooks.Add(new Hook(typeof(Room).GetMethod("FloatWaterLevel"), (On.Room.hook_FloatWaterLevel)HighWaterLevel));
+#if BEPCOMP
+                            hooks.Add(new Hook(typeof(Room).GetMethod("GetTile", new Type[] { typeof(int), typeof(int) }), (On.Room.hook_GetTile_int_int)RemoveTiles));
+#else
                             hooks.Add(new Hook(typeof(Room).GetMethod("GetTile", new Type[] { typeof(int), typeof(int) }), (On.Room.hook_GetTile_3)RemoveTiles));
+#endif
                             WriteLine("Enabled noclip.");
                         }
                         else
@@ -940,11 +948,11 @@ namespace DevConsole
                 })
                 .Register();
 
-            #endregion Players
+#endregion Players
 
 
             // Commands related to objects
-            #region Objects
+#region Objects
 
             // Spawn an object by type
             new CommandBuilder("object")
@@ -1013,7 +1021,7 @@ namespace DevConsole
                 })
                 .Register();
 
-            #endregion Objects
+#endregion Objects
         }
 
         private static string[] keyNames;
