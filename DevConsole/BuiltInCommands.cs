@@ -24,6 +24,9 @@ namespace DevConsole
             { LogType.Log, Color.white },
             { LogType.Exception, Color.red }
         };
+
+        private static RainWorld rw;
+        private static RainWorld RW => rw ??= UnityEngine.Object.FindObjectOfType<RainWorld>();
         
         // Fields for the log viewer
         private static bool showingDebug = false;
@@ -572,6 +575,180 @@ namespace DevConsole
                 bool remove = false;
                 List<Hook> hooks = new List<Hook>();
 
+                new CommandBuilder("tp")
+                    .RunGame((game, args) =>
+                    {
+                        var abstrobjs = SelectTarget(game, args.Length > 0 ? args[0] : null);
+
+                        foreach (var abstrobj in abstrobjs)
+                        {
+                            var pos = Positioning.pos;
+
+                            bool newRoom = pos.room.abstractRoom.index == abstrobj.Room.index;
+
+                            if (abstrobj.realizedObject is PhysicalObject o && o.room == null || abstrobj.realizedObject is Creature c && c.inShortcut)
+                            {
+                                WriteLine("Failed to teleport from a shortcut.");
+                                continue;
+                            }
+
+                            abstrobj.Move(pos.room.GetWorldCoordinate(pos.pos));
+
+                            if (abstrobj.realizedObject is PhysicalObject physobj)
+                            {
+                                foreach (var chunk in physobj.bodyChunks)
+                                {
+                                    chunk.HardSetPosition(pos.pos);
+                                }
+
+                                if (newRoom)
+                                {
+                                    physobj.NewRoom(pos.room);
+                                }
+                            }
+                            else if (newRoom)
+                            {
+                                pos.room.abstractRoom.AddEntity(abstrobj);
+                                abstrobj.RealizeInRoom();
+
+                                if (abstrobj.realizedObject is not null)
+                                    foreach (var chunk in abstrobj.realizedObject.bodyChunks)
+                                    {
+                                        chunk.HardSetPosition(pos.pos);
+                                        chunk.vel = Vector2.zero;
+                                    }
+                            }
+                        }
+                    })
+                    .Help("tp [selector?]")
+                    .Register();
+
+                new CommandBuilder("kill")
+                    .RunGame((game, args) =>
+                    {
+                        var abstrobjs = SelectTarget(game, args.Length > 0 ? args[0] : null);
+
+                        foreach (var abstrobj in abstrobjs)
+                        {
+                            if (abstrobj is not AbstractCreature c)
+                            {
+                                WriteLine($"Failed to kill creature because targeted object ({abstrobj.type}) is not a creature.");
+                                continue;
+                            }
+
+                            if (c.realizedCreature != null)
+                                c.realizedCreature.Die();
+                            else
+                                c.Die();
+                        }
+                    })
+                    .Help("kill [selector?]")
+                    .Register();
+
+                new CommandBuilder("move")
+                    .RunGame((game, args) =>
+                    {
+                        if (args.Length < 2 || !float.TryParse(args[0], out var x) || !float.TryParse(args[1], out var y))
+                        {
+                            WriteLine("Expected a float [velX] and a float [velY] argument.");
+                            return;
+                        }
+
+                        var abstrobjs = SelectTarget(game, args.Length > 2 ? args[2] : null);
+
+                        foreach (var abstrobj in abstrobjs)
+                        {
+                            if (abstrobj.realizedObject is not PhysicalObject o)
+                            {
+                                WriteLine($"Failed to move a non-realized object.");
+                                continue;
+                            }
+
+                            foreach (var chunk in o.bodyChunks)
+                            {
+                                chunk.vel += new Vector2(x, y);
+                            }
+                        }
+                    })
+                    .Help("move [velX] [velY] [selector?]")
+                    .Register();
+
+                new CommandBuilder("pull")
+                    .RunGame((game, args) =>
+                    {
+                        if (args.Length < 1 || !float.TryParse(args[0], out float str))
+                        {
+                            WriteLine("Expected a float [strength] argument.");
+                            return;
+                        }
+
+                        var abstrobjs = SelectTarget(game, args.Length > 2 ? args[2] : null);
+                        foreach (var abstrobj in abstrobjs)
+                        {
+                            if (abstrobj.realizedObject is not PhysicalObject o)
+                            {
+                                WriteLine($"Failed to pull a non-realized object.");
+                                continue;
+                            }
+
+                            if (o.room != Positioning.pos.room)
+                            {
+                                WriteLine("Failed to pull an object in another room.");
+                                continue;
+                            }
+
+                            if (o is Creature c && c is not Player)
+                            {
+                                c.Stun(12);
+                            }
+
+                            foreach (var chunk in o.bodyChunks)
+                            {
+                                chunk.vel += (Positioning.pos.pos - chunk.pos).normalized * str;
+                            }
+                        }
+                    })
+                    .Help("pull [strength] [selector?]")
+                    .Register();
+
+                new CommandBuilder("push")
+                    .RunGame((game, args) =>
+                    {
+                        if (args.Length < 1 || !float.TryParse(args[0], out float str))
+                        {
+                            WriteLine("Expected a float [strength] argument.");
+                            return;
+                        }
+
+                        var abstrobjs = SelectTarget(game, args.Length > 2 ? args[2] : null);
+                        foreach (var abstrobj in abstrobjs)
+                        {
+                            if (abstrobj.realizedObject is not PhysicalObject o)
+                            {
+                                WriteLine($"Failed to push a non-realized object.");
+                                continue;
+                            }
+
+                            if (o.room != Positioning.pos.room)
+                            {
+                                WriteLine("Failed to push an object in another room.");
+                                continue;
+                            }
+
+                            if (o is Creature c && c is not Player)
+                            {
+                                c.Stun(12);
+                            }
+
+                            foreach (var chunk in o.bodyChunks)
+                            {
+                                chunk.vel -= (Positioning.pos.pos - chunk.pos).normalized * str;
+                            }
+                        }
+                    })
+                    .Help("push [strength] [selector?]")
+                    .Register();
+
                 new CommandBuilder("noclip")
                     .Run(args =>
                     {
@@ -751,7 +928,7 @@ namespace DevConsole
 
                     try
                     {
-                        PlayerProgression.MiscProgressionData miscProg = UnityEngine.Object.FindObjectOfType<RainWorld>().progression.miscProgressionData;
+                        PlayerProgression.MiscProgressionData miscProg = RW.progression.miscProgressionData;
 
                         if(args[0] == "list")
                         {
@@ -828,7 +1005,7 @@ namespace DevConsole
                                 case "take":
                                     try
                                     {
-                                        PlayerProgression.MiscProgressionData miscProg = UnityEngine.Object.FindObjectOfType<RainWorld>()?.progression?.miscProgressionData;
+                                        PlayerProgression.MiscProgressionData miscProg = RW.progression.miscProgressionData;
                                         bool onlyUnlocked = args[0] == "take";
 
                                         var sids = (MultiplayerUnlocks.SandboxUnlockID[])Enum.GetValues(typeof(MultiplayerUnlocks.SandboxUnlockID));
@@ -1077,6 +1254,73 @@ namespace DevConsole
         private static void WriteLogToConsole(string logString, string stackTrace, LogType type)
         {
             WriteLine($"[{type}] {logString}", logColors.TryGetValue(type, out Color col) ? col : Color.white);
+        }
+
+        private static IEnumerable<AbstractPhysicalObject> SelectTarget(RainWorldGame game, string arg)
+        {
+            // TODO: Expand upon this, maybe add distance=..x [matches objects less than x distance away from an anchor position]
+
+            static AbstractPhysicalObject FindFirst(RainWorldGame game, AbstractRoom startSearch, EntityID id)
+            {
+                if (startSearch != null)
+                    foreach (var entity in startSearch.entities)
+                        if (entity is AbstractPhysicalObject abstractPhysicalObject && id == entity.ID)
+                            return abstractPhysicalObject;
+
+                foreach (var room in game.world.abstractRooms)
+                    if (room != null && room != startSearch)
+                        foreach (var entity in room.entities)
+                            if (entity is AbstractPhysicalObject abstractPhysicalObject && id == entity.ID)
+                                return abstractPhysicalObject;
+
+                return null;
+            }
+
+            if (string.IsNullOrEmpty(arg))
+            {
+                var abstrobj = game.Players[0];
+                if (abstrobj?.realizedObject is not Player)
+                {
+                    WriteLine("Failed to teleport a non-realized player.");
+                    return new AbstractPhysicalObject[0];
+                }
+                return new[] { abstrobj };
+            }
+
+            if (arg == "none")
+            {
+                return new AbstractPhysicalObject[0];
+            }
+
+            if (arg == "room")
+            {
+                var list = new List<AbstractPhysicalObject>();
+                foreach (var entity in game.Players[0].Room.entities)
+                {
+                    if (entity is AbstractPhysicalObject o && o.Room.index == game.Players[0].Room.index)
+                    {
+                        list.Add(o);
+                    }
+                }
+                return list;
+            }
+
+            try
+            {
+                var id = EntityID.FromString(arg);
+                var ret = FindFirst(game, game.Players[0]?.Room, id);
+                if (ret == null)
+                {
+                    WriteLine("Failed to find an entity in this region with that ID.");
+                    return new AbstractPhysicalObject[0];
+                }
+                return new[] { ret };
+            }
+            catch
+            {
+                WriteLine("Failed to parse entity ID.");
+                return new AbstractPhysicalObject[0];
+            }
         }
     }
 }
