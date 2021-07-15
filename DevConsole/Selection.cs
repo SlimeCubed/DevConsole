@@ -174,6 +174,8 @@ namespace DevConsole
                 };
             }
 
+            bool IsInverted() => Equate(true, false);
+
             static bool NullFilter(RainWorldGame game, AbstractPhysicalObject obj) => false;
 
             // Here's where the real logic happens
@@ -197,7 +199,7 @@ namespace DevConsole
                         var testType = (CreatureType)Enum.Parse(typeof(CreatureType), arg, true);
                         return (game, obj) =>
                         {
-                            if (obj is not AbstractCreature crit) return false;
+                            if (obj is not AbstractCreature crit) return IsInverted(); // Do not limit to creatures when inverted
                             return Equate((int)crit.creatureTemplate.type, (int)testType);
                         };
                     }
@@ -222,7 +224,7 @@ namespace DevConsole
                         if (SpawnRoom == null) return NullFilter;
 
                         return (game, obj) => {
-                            if(obj.Room.index != SpawnRoom.abstractRoom.index || obj.realizedObject == null) return false;
+                            if(obj.Room.index != SpawnRoom.abstractRoom.index || obj.realizedObject == null) return false; // Limit to room, no matter what op
                             return Compare(Vector2.Distance(obj.realizedObject.firstChunk.pos, SpawnPos), dist);
                         };
                     }

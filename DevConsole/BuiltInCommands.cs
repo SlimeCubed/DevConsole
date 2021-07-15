@@ -564,6 +564,31 @@ namespace DevConsole
                 })
                 .Register();
 
+            // Destroys all selected objects
+            new CommandBuilder("destroy")
+                .RunGame((game, args) =>
+                {
+                    bool respawn = (args.Length > 1) ? bool.Parse(args[1]) : false;
+
+                    foreach (var obj in Selection.SelectAbstractObjects(game, args.Length > 0 ? args[0] : null))
+                    {
+                        if (obj is AbstractCreature crit)
+                        {
+                            if (respawn)
+                                crit.Die();
+                            crit.realizedCreature?.LoseAllGrasps();
+                        }
+                        obj.realizedObject?.Destroy();
+                        obj.Destroy();
+                    }
+                })
+                .Help("destroy [selector?] [respawn: true]")
+                .AutoComplete(new string[][] {
+                    null,
+                    new string[] { "true", "false" }
+                })
+                .Register();
+
             #endregion Creatures
 
 
