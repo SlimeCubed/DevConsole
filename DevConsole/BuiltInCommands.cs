@@ -582,7 +582,7 @@ namespace DevConsole
                     foreach (var abstrobj in abstrobjs)
                     {
 
-                        bool newRoom = room.abstractRoom.index == abstrobj.Room.index;
+                        bool newRoom = room.abstractRoom.index != abstrobj.Room.index;
 
                         if (abstrobj.realizedObject is PhysicalObject o && o.room == null || abstrobj.realizedObject is Creature c && c.inShortcut)
                         {
@@ -690,7 +690,7 @@ namespace DevConsole
                         return;
                     }
 
-                    var abstrobjs = Selection.SelectAbstractObjects(game, args.Length > 2 ? args[2] : null);
+                    var abstrobjs = Selection.SelectAbstractObjects(game, args.Length > 1 ? args[1] : null);
                     var logs = new DedupCache<string>();
 
                     foreach (var abstrobj in abstrobjs)
@@ -734,7 +734,7 @@ namespace DevConsole
                         return;
                     }
 
-                    var abstrobjs = Selection.SelectAbstractObjects(game, args.Length > 2 ? args[2] : null);
+                    var abstrobjs = Selection.SelectAbstractObjects(game, args.Length > 1 ? args[1] : null);
                     var logs = new DedupCache<string>();
 
                     foreach (var abstrobj in abstrobjs)
