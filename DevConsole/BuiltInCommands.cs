@@ -48,6 +48,19 @@ namespace DevConsole
                     showingDebug = !showingDebug;
                     Application.RegisterLogCallback(cb);
                     WriteLine(showingDebug ? "Debug messages will be displayed here." : "Debug messages will no longer be displayed here.");
+
+                    if (args.Length > 0 && bool.TryParse(args[0], out bool argBool) && argBool)
+                    {
+                        WriteLine("The game will pause when errors occur.");
+                        pauseOnError = true;
+                    }
+                    else
+                        pauseOnError = false;
+                })
+                .Help("show_debug [pause_on_error: false]")
+                .AutoComplete(new string[][]
+                {
+                    new string[] { "true", "false" }
                 })
                 .Register();
 
@@ -522,7 +535,11 @@ namespace DevConsole
                         SpawnRoom.abstractRoom.AddEntity(crit);
                         crit.RealizeInRoom();
                     }
-                    catch { WriteLine("Failed to spawn creature!"); }
+                    catch(Exception e)
+                    {
+                        WriteLine("Failed to spawn creature! See console log for more info.");
+                        Debug.Log("Failed to spawn creature!\n" + e.ToString());
+                    }
                 })
                 .Help("creature [type] [ID?]")
                 .AutoComplete(new string[][] {
@@ -1205,7 +1222,11 @@ namespace DevConsole
                         SpawnRoom.abstractRoom.AddEntity(apo);
                         apo.RealizeInRoom();
                     }
-                    catch { WriteLine("Failed to spawn object!"); }
+                    catch (Exception e)
+                    {
+                        WriteLine("Failed to spawn object! See console log for more info.");
+                        Debug.Log("Failed to spawn object!\n" + e.ToString());
+                    }
                 })
                 .Help("object [type] [tag1?] [tag2?] ...")
                 .AutoComplete(new string[][] {
@@ -1301,9 +1322,18 @@ namespace DevConsole
             }
         }
 
+        private static bool pauseOnError;
         private static void WriteLogToConsole(string logString, string stackTrace, LogType type)
         {
-            WriteLine($"[{type}] {logString}", logColors.TryGetValue(type, out Color col) ? col : Color.white);
+            if (!logColors.TryGetValue(type, out Color color)) color = Color.white;
+
+            WriteLine($"[{type}] {logString}", color);
+            if(type == LogType.Exception || type == LogType.Error || type == LogType.Assert)
+            {
+                WriteLine(stackTrace, color);
+                if (pauseOnError)
+                    ForceOpen(true);
+            }
         }
 
         // May be used to clean up outputs that contain a lot of repeated lines

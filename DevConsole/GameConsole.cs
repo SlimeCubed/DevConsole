@@ -36,6 +36,7 @@ namespace DevConsole
         private static bool isGamePaused = false;   // True while the game is paused
         private static readonly List<CommandHandlerInfo> commands = new List<CommandHandlerInfo>();
         private static List<QueuedLine> queuedLines = new List<QueuedLine>(); // Lines sent before init or from another thread
+        private static ForceOpenArgs forceOpen;
 
         private StringBuilder inputString = new StringBuilder();        // Stores the user's command line input
         private readonly Queue<LineInfo> lines = new Queue<LineInfo>(); // Stores the most recent output lines added
@@ -230,6 +231,15 @@ namespace DevConsole
         }
 
         /// <summary>
+        /// Force the console to open next frame.
+        /// </summary>
+        /// <param name="pause">Whether the game should pause while the console is open.</param>
+        public static void ForceOpen(bool pause = false)
+        {
+            forceOpen = new ForceOpenArgs(pause);
+        }
+
+        /// <summary>
         /// Registers a command to be called when the user enters a line to the console.
         /// </summary>
         /// <param name="handler">The command handler to register.</param>
@@ -353,16 +363,17 @@ namespace DevConsole
             bool skipInput = false;
 
             // Open and close the console
-            if (!typing && Input.GetKeyDown(KeyCode.BackQuote))
+            if (!typing && Input.GetKeyDown(KeyCode.BackQuote) || forceOpen != null)
             {
                 typing = true;
                 container.isVisible = true;
                 skipInput = true;
 
-                PauseGame(DevConsoleMod.autopause);
+                PauseGame(DevConsoleMod.autopause || (forceOpen?.pause ?? false));
             }
             else if (typing && (Input.GetKeyUp(KeyCode.Escape) || Input.GetKeyDown(KeyCode.BackQuote)))
             {
+                forceOpen = null;
                 typing = false;
                 container.isVisible = false;
 
@@ -767,6 +778,17 @@ namespace DevConsole
         {
             public Color color;
             public string text;
+        }
+
+        // Info about how the console should act when forced open
+        private class ForceOpenArgs
+        {
+            public bool pause;
+
+            public ForceOpenArgs(bool pause)
+            {
+                this.pause = pause;
+            }
         }
 
         // Info about a command, used for debugging
