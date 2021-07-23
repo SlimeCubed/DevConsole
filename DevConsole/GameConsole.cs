@@ -363,7 +363,7 @@ namespace DevConsole
             bool skipInput = false;
 
             // Open and close the console
-            if (!typing && Input.GetKeyDown(KeyCode.BackQuote) || forceOpen != null)
+            if (!typing && (Input.GetKeyDown(KeyCode.BackQuote) || forceOpen != null))
             {
                 typing = true;
                 container.isVisible = true;
