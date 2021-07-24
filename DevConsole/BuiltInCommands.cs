@@ -26,6 +26,10 @@ namespace DevConsole
             { LogType.Exception, Color.red }
         };
 
+        // Constants for key bindings
+        private static readonly string[] eventNames = new string[] { "down", "up", "hold_down", "hold_up" };
+        private static readonly string[] timingNames = new string[] { "frame", "update" };
+
         private static RainWorld rw;
         private static RainWorld RW => rw ??= UnityEngine.Object.FindObjectOfType<RainWorld>();
         
@@ -118,7 +122,7 @@ namespace DevConsole
                         void FixedRawUpdate(On.MainLoopProcess.orig_RawUpdate orig, MainLoopProcess self, float dt)
                         {
                             self.myTimeStacker += dt * self.framesPerSecond;
-                            while (self.myTimeStacker > 1f)
+                            while (self.myTimeStacker > 2f)
                             {
                                 self.Update();
                                 self.myTimeStacker -= 1f;
@@ -127,7 +131,9 @@ namespace DevConsole
                                 if (self.myTimeStacker > 1f)
                                     self.GrafUpdate(self.myTimeStacker);
                             }
-                            self.GrafUpdate(self.myTimeStacker);
+
+                            //self.GrafUpdate(self.myTimeStacker);
+                            orig(self, 0f);
                         }
 
                         try
@@ -397,40 +403,43 @@ namespace DevConsole
                         return;
                     }
 
-                    IBindEvent e = EventFromKey(args[0]);
+                    int skip = 1;
+                    string mode = "down";
+                    bool syncWithUpdate = true;
+
+                    if (skip < args.Length && eventNames.Contains(args[skip]))
+                        mode = args[skip++];
+
+                    if (skip < args.Length && timingNames.Contains(args[skip]))
+                        syncWithUpdate = args[skip++] == "update";
+                    
+                    IBindEvent e = EventFromKey(args[0], mode);
                     if (e == null)
                     {
                         WriteLine($"Couldn't find key: {args[0]}");
                         return;
                     }
 
-                    if (args.Length == 1)
+                    if (skip >= args.Length)
                     {
-                        // Only the key was specified
-                        // Get and print all binds
-                        var boundCommands = Bindings.GetBoundCommands(e);
-                        if (boundCommands.Length == 0)
-                            WriteLine("No commands bound.");
-                        else
-                            foreach (var cmd in boundCommands)
-                                WriteLine(cmd);
+                        // Only the key was specified - get and print all binds
+                        foreach (var cmd in Bindings.GetBoundCommands(e, syncWithUpdate))
+                            WriteLine(cmd);
                     }
                     else
                     {
-                        // A list of commands was specified
-                        // Bind them
-                        foreach (var cmd in args.Skip(1))
-                        {
-                            if (cmd == "") continue;
-                            Bindings.Bind(e, cmd);
-                        }
+                        // A list of commands was specified - bind them
+                        foreach (var cmd in args.Skip(skip).Where(s => !string.IsNullOrEmpty(s)))
+                            Bindings.Bind(e, cmd, syncWithUpdate);
                     }
                 })
-                .Help("bind [keycode] [commmand1?] [command2?] ...")
-                .AutoComplete(args =>
+                .Help("bind [keycode] [event?] [timing?] [commmand1?] [command2?] ...")
+                .AutoComplete(args => args.Length switch
                 {
-                    if (args.Length == 0) return GetKeyNames();
-                    else return null;
+                    0 => GetKeyNames(),
+                    1 => eventNames,
+                    2 => eventNames.Contains(args[1]) ? timingNames : null,
+                    _ => null
                 })
                 .Register();
 
@@ -444,35 +453,63 @@ namespace DevConsole
                         return;
                     }
 
-                    IBindEvent e = EventFromKey(args[0]);
-                    if (e == null)
+                    int skip = 1;
+                    string mode = null;
+                    bool? syncWithUpdate = null;
+
+                    if (skip < args.Length && eventNames.Contains(args[skip]))
+                        mode = args[skip++];
+
+                    if (skip < args.Length && timingNames.Contains(args[skip]))
+                        syncWithUpdate = args[skip++] == "update";
+
+                    // Find what events to unbind
+                    // Leaving it blank selects all
+                    IBindEvent[] events;
+                    if (mode == null)
+                        events = eventNames.Select(mode => EventFromKey(args[0], mode)).ToArray();
+                    else
+                        events = new IBindEvent[] { EventFromKey(args[0], mode) };
+
+                    // Find what sync mods to unbind
+                    // Leaving it blank selects both
+                    bool[] syncs;
+                    if (syncWithUpdate == null)
+                        syncs = new bool[] { true, false };
+                    else
+                        syncs = new bool[] { syncWithUpdate.Value };
+
+                    if (events.Any(o => o == null))
                     {
                         WriteLine($"Couldn't find key: {args[0]}");
                         return;
                     }
 
-                    if (args.Length == 1)
+                    if (skip >= args.Length)
                     {
-                        // Only the key was specified
-                        // Unbind all
-                        Bindings.UnbindAll(e);
+                        // Only the key was specified - unbind all
+                        foreach(var e in events)
+                            foreach(var sync in syncs)
+                                Bindings.UnbindAll(e, sync);
                     }
                     else
                     {
-                        // A list of commands was specified
-                        // Unbind them all
-                        foreach (var cmd in args.Skip(1))
+                        // A list of commands was specified - unbind them specifically
+                        foreach (var cmd in args.Skip(skip).Where(s => !string.IsNullOrEmpty(s)))
                         {
-                            if (cmd == "") continue;
-                            Bindings.Unbind(e, cmd);
+                            foreach (var e in events)
+                                foreach (var sync in syncs)
+                                    Bindings.Unbind(e, cmd, sync);
                         }
                     }
                 })
-                .Help("unbind [keycode] [commmand1?] [command2?] ...")
-                .AutoComplete(args =>
+                .Help("unbind [keycode] [event?] [timing?] [commmand1?] [command2?] ...")
+                .AutoComplete(args => args.Length switch
                 {
-                    if (args.Length == 0) return GetKeyNames();
-                    else return null;
+                    0 => GetKeyNames(),
+                    1 => eventNames,
+                    2 => eventNames.Contains(args[1]) ? timingNames : null,
+                    _ => null
                 })
                 .Register();
 
@@ -1280,27 +1317,17 @@ namespace DevConsole
             return keyNames;
         }
 
-        private static IBindEvent EventFromKey(string key)
+        private static IBindEvent EventFromKey(string key, string keyEvent)
         {
-            KeyMode mode = KeyMode.Down;
-
-            // Find mode prefix
-            if (key.Length > 1)
+            KeyMode mode = keyEvent switch
             {
-                bool trimKey = true;
+                "down" => KeyMode.Down,
+                "up" => KeyMode.Up,
+                "hold_down" => KeyMode.HoldDown,
+                "hold_up" => KeyMode.HoldUp,
+                _ => KeyMode.Down
+            };
 
-                switch (key[0])
-                {
-                    default: trimKey = false; goto case '+';
-                    case '+': mode = KeyMode.Down; break;
-                    case '_': mode = KeyMode.HoldDown; break;
-                    case '-': mode = KeyMode.Up; break;
-                    case '^': mode = KeyMode.HoldUp; break;
-                }
-
-                if (trimKey) key = key.Substring(1);
-            }
-            
             // Generate event from key
             try
             {

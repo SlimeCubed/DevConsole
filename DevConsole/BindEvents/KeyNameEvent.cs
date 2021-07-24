@@ -49,5 +49,11 @@ namespace DevConsole.BindEvents
                     && Mode == other.Mode;
             return false;
         }
+
+        /// <inheritdoc/>
+        public override string ToString()
+        {
+            return $"{KeyName} {Mode}";
+        }
     }
 }

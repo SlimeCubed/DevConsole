@@ -33,7 +33,7 @@ namespace DevConsole
         private static List<IDetour> inputBlockers; // A list of detours that cause input to be ignored
         private static string currentFont = "font"; // Backing field for CurrentFont
         private static bool blockingInput = false;  // True while the input blockers are active
-        private static bool isGamePaused = false;   // True while the game is paused
+        private static Hook blockUpdateHook;        // A hook that pauses the game
         private static readonly List<CommandHandlerInfo> commands = new List<CommandHandlerInfo>();
         private static List<QueuedLine> queuedLines = new List<QueuedLine>(); // Lines sent before init or from another thread
         private static ForceOpenArgs forceOpen;
@@ -353,7 +353,7 @@ namespace DevConsole
             }
 
             // Run bound commands
-            Bindings.Run();
+            Bindings.RunFrame();
 
             // Update target position
             Positioning.Update();
@@ -605,15 +605,17 @@ namespace DevConsole
         {
             void BlockUpdate(On.RainWorld.orig_Update orig, RainWorld self) { }
 
-            if (shouldPause && !isGamePaused)
+            if (shouldPause && blockUpdateHook == null)
             {
-                On.RainWorld.Update += BlockUpdate;
-                isGamePaused = true;
+                blockUpdateHook = new Hook(
+                    typeof(RainWorld).GetMethod(nameof(RainWorld.Update)),
+                    (On.RainWorld.hook_Update)BlockUpdate
+                );
             }
-            else if(!shouldPause && isGamePaused)
+            else if(!shouldPause && blockUpdateHook != null)
             {
-                On.RainWorld.Update -= BlockUpdate;
-                isGamePaused = false;
+                blockUpdateHook.Dispose();
+                blockUpdateHook = null;
             }
         }
 
