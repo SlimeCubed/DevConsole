@@ -62,10 +62,18 @@ namespace DevConsole
         private static IEnumerable<AbstractPhysicalObject> FindBaseAbstractObjects(RainWorldGame game, string arg)
         {
             if (string.IsNullOrEmpty(arg)) arg = "me";
+
             var firstPlayer = game.Players.Count == 0 ? null : game.Players[0];
 
             switch (arg.ToLower())
             {
+                case "not_me":
+                    return game.world.abstractRooms
+                        .SelectMany(room => room.entities
+                            .Select(ent => ent as AbstractPhysicalObject)
+                            .Where(apo => apo != null && apo != firstPlayer)
+                        );
+
                 case "me":
                     if (firstPlayer == null)
                     {
