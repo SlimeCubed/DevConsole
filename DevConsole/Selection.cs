@@ -10,9 +10,15 @@ using UnityEngine;
 
 namespace DevConsole
 {
-    // Helper methods for selecting objects from the console
-    internal class Selection
+    /// <summary>
+    /// Contains methods for selecting physical objects from the console.
+    /// </summary>
+    public class Selection
     {
+        /// <summary>
+        /// Selects abstract objects from the provided selector argument.
+        /// </summary>
+        /// <returns>All selected objects.</returns>
         public static IEnumerable<AbstractPhysicalObject> SelectAbstractObjects(RainWorldGame game, string arg)
         {
             var args = arg?.Split(',');
