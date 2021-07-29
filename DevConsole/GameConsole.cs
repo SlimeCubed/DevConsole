@@ -133,12 +133,12 @@ namespace DevConsole
         /// <summary>
         /// If a command operates on a position, it should be focused on this position inside of <see cref="SpawnRoom"/>.
         /// </summary>
-        public static Vector2 SpawnPos => Positioning.pos.pos;
+        public static Vector2 SpawnPos => Positioning.Pos.pos;
 
         /// <summary>
         /// If a command operators on a position, it should be focused on <see cref="SpawnPos"/> inside of this room.
         /// </summary>
-        public static Room SpawnRoom => Positioning.pos.room;
+        public static Room SpawnRoom => Positioning.Pos.room;
 
         /// <summary>
         /// Gets or sets the font used for the console.

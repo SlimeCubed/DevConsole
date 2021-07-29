@@ -11,8 +11,8 @@ namespace DevConsole
     // GameConsole.SpawnPos and GameConsole.SpawnRoom use this
     internal static class Positioning
     {
-        public static RoomPos pos;
-        public static Func<RainWorldGame, RoomPos> getPos = GetPosDefault;
+        public static RoomPos Pos { get; private set; }
+        public static Func<RainWorldGame, RoomPos> GetDefaultPos { private get; set; } = GetPosDefault;
 
         private static RainWorld rw;
 
@@ -21,19 +21,19 @@ namespace DevConsole
             if (rw == null) rw = Object.FindObjectOfType<RainWorld>();
             if (rw == null) return;
 
-            if (rw.processManager.currentMainLoop is RainWorldGame game && getPos != null)
+            if (rw.processManager.currentMainLoop is RainWorldGame game && GetDefaultPos != null)
             {
                 try
                 {
-                    pos = getPos(game);
+                    Pos = GetDefaultPos(game);
                 }
                 catch
                 {
-                    pos = new RoomPos(Input.mousePosition);
+                    Pos = new RoomPos(Input.mousePosition);
                 }
             }
             else
-                pos = new RoomPos(Input.mousePosition);
+                Pos = new RoomPos(Input.mousePosition);
         }
 
         public static RoomPos GetPosDefault(RainWorldGame game)
