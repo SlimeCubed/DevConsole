@@ -43,8 +43,11 @@ namespace DevConsole
 
         public void CycleOptions(int amount)
         {
-            CycleLeft(options, amount);
-            RefreshLabels();
+            if (options != null && options.Count > 0)
+            {
+                CycleLeft(options, amount);
+                RefreshLabels();
+            }
         }
 
         private void RefreshLabels()
