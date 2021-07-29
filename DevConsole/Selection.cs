@@ -16,9 +16,9 @@ namespace DevConsole
     public static class Selection
     {
         /// <summary>
-        /// Selects abstract objects from the provided selector argument.
+        /// Parses <paramref name="arg"/> and selects abstract objects within <paramref name="game"/>.
         /// </summary>
-        /// <returns>All selected objects.</returns>
+        /// <returns>The selected objects.</returns>
         public static IEnumerable<AbstractPhysicalObject> SelectAbstractObjects(RainWorldGame game, string arg)
         {
             var args = arg?.Split(',');
