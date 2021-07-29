@@ -342,6 +342,109 @@ namespace DevConsole
                         return null;
                     })
                     .Register();
+
+                // Call a static method
+                {
+                    Type SearchNestedTypes(Func<string, Type> getType, string[] typeParts, int startInd)
+                    {
+                        for(int end = startInd + 1; end <= typeParts.Length; end++)
+                        {
+                            Type t = getType(typeParts.Skip(startInd).Take(end - startInd).Aggregate((acc, str) => $"{acc}.{str}"));
+                            if (t == null) continue;
+                            if(end == typeParts.Length)
+                            {
+                                return t;
+                            }
+                            else
+                            {
+                                t = SearchNestedTypes(typeName => t.GetNestedType(typeName, BindingFlags.Public | BindingFlags.NonPublic), typeParts, end);
+                                if (t != null) return t;
+                            }
+                        }
+                        return null;
+                    }
+
+                    new CommandBuilder("invoke")
+                        .Run(args =>
+                        {
+                            if (args.Length == 0)
+                            {
+                                WriteLine("No method specified!");
+                                return;
+                            }
+
+                            // Get the type and method names
+                            string[] typeParts = args[0].Split('.');
+                            if(typeParts.Length < 2)
+                            {
+                                WriteLine("A type and method must be specified!");
+                                return;
+                            }
+
+                            string methodName = typeParts[typeParts.Length - 1];
+                            Array.Resize(ref typeParts, typeParts.Length - 1);
+
+                            // Find the type
+                            Type t = null;
+                            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+                            {
+                                t = SearchNestedTypes(typeName => asm.GetType(typeName, false, true), typeParts, 0);
+                                if(t != null)
+                                    break;
+                            }
+
+                            if(t == null)
+                            {
+                                WriteLine($"Could not find type: {string.Join(".", typeParts)}");
+                                return;
+                            }
+
+                            // Find the method
+                            foreach (var m in t.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static))
+                            {
+                                if (!m.Name.Equals(methodName, StringComparison.OrdinalIgnoreCase)) continue;
+                                if (m.ContainsGenericParameters) continue;
+
+                                var p = m.GetParameters();
+                                if (p.Length != args.Length - 1) continue;
+
+                                // Try converting all arguments
+                                object[] realArgs = new object[p.Length];
+                                for (int i = 0; i < realArgs.Length; i++)
+                                {
+                                    try
+                                    {
+                                        Type paramType = p[i].ParameterType;
+                                        string arg = args[i + 1];
+                                        if ((arg is "null" or "default") && !paramType.IsValueType)
+                                            realArgs[i] = null;
+                                        else if (arg is "default")
+                                            realArgs[i] = Activator.CreateInstance(paramType);
+                                        else
+                                            realArgs[i] = System.ComponentModel.TypeDescriptor.GetConverter(paramType).ConvertFromInvariantString(arg);
+                                    }
+                                    catch
+                                    {
+                                        goto continueOuter;
+                                    }
+                                }
+
+                                // All args are set
+                                // Execute
+                                object res = m.Invoke(null, realArgs);
+                                if (res != null)
+                                {
+                                    WriteLine(res.ToString());
+                                }
+                                return;
+                            continueOuter:;
+                            }
+
+                            WriteLine($"Could not find the specified method overload: {methodName}");
+                        })
+                        .Help("invoke [method] [arg1?] [arg2?] ...")
+                        .Register();
+                }
             }
 
             // Control positioning of commands
