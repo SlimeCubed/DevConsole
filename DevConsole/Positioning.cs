@@ -29,34 +29,41 @@ namespace DevConsole
                 }
                 catch
                 {
-                    Pos = new RoomPos(Input.mousePosition);
+                    Pos = new RoomPos(null, Input.mousePosition);
                 }
             }
             else
-                Pos = new RoomPos(Input.mousePosition);
+                Pos = new RoomPos(null, Input.mousePosition);
         }
 
         public static RoomPos GetPosDefault(RainWorldGame game)
         {
-            return new RoomPos(game.Players[0].realizedObject.room, game.Players[0].realizedObject.firstChunk.pos);
+            return new RoomPos(game.Players[0].Room, game.Players[0].realizedObject.firstChunk.pos);
         }
+    }
 
-        public struct RoomPos
+    /// <summary>
+    /// Represents a position in the game world.
+    /// </summary>
+    public struct RoomPos
+    {
+        /// <summary>
+        /// The room. This may be null.
+        /// </summary>
+        public AbstractRoom Room { get; }
+
+        /// <summary>
+        /// The exact position in the room.
+        /// </summary>
+        public Vector2 Pos { get; }
+
+        /// <summary>
+        /// Initializes a new <see cref="RoomPos"/>.
+        /// </summary>
+        public RoomPos(AbstractRoom room, Vector2 pos)
         {
-            public readonly Room room;
-            public readonly Vector2 pos;
-
-            public RoomPos(Room room, Vector2 pos)
-            {
-                this.room = room;
-                this.pos = pos;
-            }
-
-            public RoomPos(Vector2 pos)
-            {
-                room = null;
-                this.pos = pos;
-            }
+            Room = room;
+            Pos = pos;
         }
     }
 }

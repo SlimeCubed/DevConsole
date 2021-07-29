@@ -131,14 +131,9 @@ namespace DevConsole
         public static Color BackColor => backColor;
 
         /// <summary>
-        /// If a command operates on a position, it should be focused on this position inside of <see cref="SpawnRoom"/>.
+        /// The current default position. This can be set by the default_pos command.
         /// </summary>
-        public static Vector2 SpawnPos => Positioning.Pos.pos;
-
-        /// <summary>
-        /// If a command operators on a position, it should be focused on <see cref="SpawnPos"/> inside of this room.
-        /// </summary>
-        public static Room SpawnRoom => Positioning.Pos.room;
+        public static RoomPos DefaultPos => Positioning.Pos;
 
         /// <summary>
         /// Gets or sets the font used for the console.

@@ -11,9 +11,9 @@ using UnityEngine;
 namespace DevConsole
 {
     /// <summary>
-    /// Contains methods for selecting physical objects from the console.
+    /// Contains methods for selecting abstract physical objects from a selector string in-game.
     /// </summary>
-    public class Selection
+    public static class Selection
     {
         /// <summary>
         /// Selects abstract objects from the provided selector argument.
