@@ -626,14 +626,18 @@ namespace DevConsole
 
                     foreach (var obj in Selection.SelectAbstractObjects(game, args.Length > 0 ? args[0] : null))
                     {
-                        if (obj is AbstractCreature crit)
+                        try
                         {
-                            if (respawn)
-                                crit.Die();
-                            crit.realizedCreature?.LoseAllGrasps();
+                            if (obj is AbstractCreature crit)
+                            {
+                                if (respawn)
+                                    crit.Die();
+                                crit.realizedCreature?.LoseAllGrasps();
+                            }
+                            obj.realizedObject?.Destroy();
+                            obj.Destroy();
                         }
-                        obj.realizedObject?.Destroy();
-                        obj.Destroy();
+                        catch { /* YOLO */ }
                     }
                 })
                 .Help("destroy [selector?] [respawn: true]")
@@ -1306,7 +1310,37 @@ namespace DevConsole
                 })
                 .Register();
 
-                #endregion Objects
+            // Randomize the fields of all selected realized objects
+            new CommandBuilder("corrupt")
+                .RunGame((game, args) =>
+                {
+                    try
+                    {
+                        float chance = 0.1f;
+                        float strength = 5.0f;
+
+                        if (args.Length > 1) chance = float.Parse(args[1]);
+                        if (args.Length > 2) strength = float.Parse(args[2]);
+
+                        foreach (var obj in Selection.SelectAbstractObjects(game, args.Length > 0 ? args[0] : null).Select(obj => obj.realizedObject).Where(obj => obj != null))
+                        {
+                            Corrupt(obj, chance, strength);
+                            if (obj.graphicsModule is GraphicsModule gm)
+                            {
+                                Corrupt(gm, chance, strength);
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        WriteLine("Corruption failed!");
+                    }
+                })
+                //.Help("corrupt [selector?] [chance: 0.1] [strength: 5.0]")
+                .HideHelp()
+                .Register();
+
+            #endregion Objects
         }
 
         private static string[] keyNames;
@@ -1360,6 +1394,66 @@ namespace DevConsole
                 WriteLine(stackTrace, color);
                 if (pauseOnError)
                     ForceOpen(true);
+            }
+        }
+
+        private static readonly string[] fragileFields = new string[]
+        {
+            nameof(PhysicalObject.collisionLayer)
+        };
+
+        static void Corrupt(object obj, float chance, float strength, int depth = 5)
+        {
+            if (obj == null) return;
+
+            foreach (var field in obj.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+            {
+                if (fragileFields.Contains(field.Name)) continue;
+                if (UnityEngine.Random.value >= chance) continue;
+
+                object val = field.GetValue(obj);
+                if (val == null) continue;
+
+                float rand = UnityEngine.Random.value * 2f - 1f;
+                switch (Type.GetTypeCode(field.FieldType))
+                {
+                    // Bool
+                    case TypeCode.Boolean: val = rand < 0.5f; break;
+
+                    // Numeric types
+                    case TypeCode.Byte: val = (byte)((int)val + (int)(rand * strength)); break;
+                    case TypeCode.Char: val = (char)((int)val + (int)(rand * strength)); break;
+                    case TypeCode.Double: val = (double)val + rand * strength; break;
+                    case TypeCode.Int16: val = (short)val + (short)(rand * strength); break;
+                    case TypeCode.Int32: val = (int)val + (int)(rand * strength); break;
+                    case TypeCode.Int64: val = (long)val + (long)(rand * strength); break;
+                    case TypeCode.SByte: val = (sbyte)val + (sbyte)(rand * strength); break;
+                    case TypeCode.Single: val = (float)val + rand * strength; break;
+                    case TypeCode.UInt16: val = (ushort)val + (short)(rand * strength); break;
+                    case TypeCode.UInt32: val = (uint)((uint)val + (int)(rand * strength)); break;
+                    case TypeCode.UInt64: val = (ulong)((long)(ulong)val + (long)(rand * strength)); break;
+
+                    // String
+                    case TypeCode.String:
+                        char[] chars = ((string)val).ToCharArray();
+                        for (int i = 0; i < chars.Length; i++)
+                        {
+                            if (UnityEngine.Random.value < strength)
+                                chars[i] = (char)UnityEngine.Random.Range(0x0000, 0x10000);
+                        }
+                        val = new string(chars);
+                        break;
+
+                    // Struct
+                    case TypeCode.Object:
+                        if(field.FieldType.IsValueType)
+                        {
+                            Corrupt(val, chance, strength, depth - 1);
+                        }
+                        break;
+                }
+
+                field.SetValue(obj, val);
             }
         }
 

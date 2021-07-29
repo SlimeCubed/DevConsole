@@ -55,7 +55,7 @@ namespace DevConsole
                         verticalAlignment = OpLabel.LabelVAlignment.Center,
                         description = desc
                     },
-                    new OpComboBox(listPos + new Vector2(2f, 0f), 100f, "devconsole.font", Futile.atlasManager._fontsByName.Keys.ToArray(), "font")
+                    new OpComboBox(listPos + new Vector2(2f, 0f), 100f, "devconsole.font", Futile.atlasManager._fontsByName.Keys.ToArray(), "devconsolas")
                     {
                         description = desc
                     }

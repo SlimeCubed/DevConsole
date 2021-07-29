@@ -31,7 +31,7 @@ namespace DevConsole
 
         private static GameConsole instance;        // The game's console instance
         private static List<IDetour> inputBlockers; // A list of detours that cause input to be ignored
-        private static string currentFont = "font"; // Backing field for CurrentFont
+        private static string currentFont = "devconsolas"; // Backing field for CurrentFont
         private static bool blockingInput = false;  // True while the input blockers are active
         private static Hook blockUpdateHook;        // A hook that pauses the game
         private static readonly List<CommandHandlerInfo> commands = new List<CommandHandlerInfo>();
