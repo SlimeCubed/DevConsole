@@ -448,14 +448,14 @@ namespace DevConsole
             }
 
             // Control positioning of commands
-            new CommandBuilder("target_pos")
+            new CommandBuilder("default_pos")
                 .Run(args =>
                 {
                     if (args.Length == 0)
                     {
-                        WriteLine("target_pos player [player_num: 0]");
-                        WriteLine("target_pos mouse [camera_num: 0]");
-                        WriteLine("target_pos camera [camera_num: 0]");
+                        WriteLine("default_pos player [player_num: 0]");
+                        WriteLine("default_pos mouse [camera_num: 0]");
+                        WriteLine("default_pos camera [camera_num: 0]");
                     }
                     else
                     {
@@ -465,15 +465,15 @@ namespace DevConsole
                             switch (args[0])
                             {
                                 case "player":
-                                    Positioning.getPos = game => new Positioning.RoomPos(game.Players[num].realizedObject.room, game.Players[num].realizedObject.firstChunk.pos);
+                                    Positioning.GetDefaultPos = game => new Positioning.RoomPos(game.Players[num].realizedObject.room, game.Players[num].realizedObject.firstChunk.pos);
                                     WriteLine("Commands will target the player.");
                                     break;
                                 case "mouse":
-                                    Positioning.getPos = game => new Positioning.RoomPos(game.cameras[num].room, game.cameras[num].pos + (Vector2)Input.mousePosition);
+                                    Positioning.GetDefaultPos = game => new Positioning.RoomPos(game.cameras[num].room, game.cameras[num].pos + (Vector2)Input.mousePosition);
                                     WriteLine("Commands will target the mouse.");
                                     break;
                                 case "camera":
-                                    Positioning.getPos = game => new Positioning.RoomPos(game.cameras[num].room, game.cameras[num].pos + game.cameras[num].sSize / 2f);
+                                    Positioning.GetDefaultPos = game => new Positioning.RoomPos(game.cameras[num].room, game.cameras[num].pos + game.cameras[num].sSize / 2f);
                                     WriteLine("Commands will target the center of the camera.");
                                     break;
                             }
@@ -484,7 +484,7 @@ namespace DevConsole
                         }
                     }
                 })
-                .Help("target_pos [target?] [arg?]")
+                .Help("default_pos [target?] [arg?]")
                 .AutoComplete(new string[][] {
                     new string[] { "player", "mouse", "camera" }
                 })
@@ -1384,7 +1384,7 @@ namespace DevConsole
                         Debug.Log("Failed to spawn object!\n" + e.ToString());
                     }
                 })
-                .Help("object [type] [tag1?] [tag2?] ...")
+                .Help("object [pos?] [type] [tag1?] [tag2?] ...")
                 .AutoComplete(new string[][] {
                     Enum.GetNames(typeof(AbstractPhysicalObject.AbstractObjectType))
                 })
