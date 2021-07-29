@@ -9,7 +9,7 @@ namespace DevConsole
 {
     // Controls where commands should place in-game effects
     // GameConsole.SpawnPos and GameConsole.SpawnRoom use this
-    internal static class Positioning
+    internal static class DefaultPositioning
     {
         public static RoomPos Pos { get; private set; }
         public static Func<RainWorldGame, RoomPos> GetDefaultPos { private get; set; } = GetPosDefault;
@@ -39,31 +39,6 @@ namespace DevConsole
         public static RoomPos GetPosDefault(RainWorldGame game)
         {
             return new RoomPos(game.Players[0].Room, game.Players[0].realizedObject.firstChunk.pos);
-        }
-    }
-
-    /// <summary>
-    /// Represents a position in the game world.
-    /// </summary>
-    public struct RoomPos
-    {
-        /// <summary>
-        /// The room. This may be null.
-        /// </summary>
-        public AbstractRoom Room { get; }
-
-        /// <summary>
-        /// The exact position in the room.
-        /// </summary>
-        public Vector2 Pos { get; }
-
-        /// <summary>
-        /// Initializes a new <see cref="RoomPos"/>.
-        /// </summary>
-        public RoomPos(AbstractRoom room, Vector2 pos)
-        {
-            Room = room;
-            Pos = pos;
         }
     }
 }

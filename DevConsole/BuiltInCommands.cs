@@ -465,15 +465,15 @@ namespace DevConsole
                             switch (args[0])
                             {
                                 case "player":
-                                    Positioning.GetDefaultPos = game => new RoomPos(game.Players[num].Room, game.Players[num].realizedObject.firstChunk.pos);
+                                    DefaultPositioning.GetDefaultPos = game => new RoomPos(game.Players[num].Room, game.Players[num].realizedObject.firstChunk.pos);
                                     WriteLine("Commands will target the player.");
                                     break;
                                 case "mouse":
-                                    Positioning.GetDefaultPos = game => new RoomPos(game.cameras[num].room.abstractRoom, game.cameras[num].pos + (Vector2)Input.mousePosition);
+                                    DefaultPositioning.GetDefaultPos = game => new RoomPos(game.cameras[num].room.abstractRoom, game.cameras[num].pos + (Vector2)Input.mousePosition);
                                     WriteLine("Commands will target the mouse.");
                                     break;
                                 case "camera":
-                                    Positioning.GetDefaultPos = game => new RoomPos(game.cameras[num].room.abstractRoom, game.cameras[num].pos + game.cameras[num].sSize / 2f);
+                                    DefaultPositioning.GetDefaultPos = game => new RoomPos(game.cameras[num].room.abstractRoom, game.cameras[num].pos + game.cameras[num].sSize / 2f);
                                     WriteLine("Commands will target the center of the camera.");
                                     break;
                             }

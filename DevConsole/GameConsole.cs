@@ -133,7 +133,7 @@ namespace DevConsole
         /// <summary>
         /// The current default position. This can be set by the default_pos command.
         /// </summary>
-        public static RoomPos DefaultPos => Positioning.Pos;
+        public static RoomPos DefaultPos => DefaultPositioning.Pos;
 
         /// <summary>
         /// Gets or sets the font used for the console.
@@ -351,7 +351,7 @@ namespace DevConsole
             Bindings.RunFrame();
 
             // Update target position
-            Positioning.Update();
+            DefaultPositioning.Update();
 
             CaptureInput(false);
 
