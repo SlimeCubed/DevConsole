@@ -950,23 +950,35 @@ namespace DevConsole
 
                         try
                         {
-                            if (hooks.Count == 0)
+                            if (args[0] is not "nothing" and not "death" and not "everything")
                             {
-                                hooks.Add(new Hook(typeof(Player).GetMethod("Die"), (On.Player.hook_Die)StopDeath));
+                                WriteLine("Failed to toggle invulnerability!");
+                                return;
+                            }
 
-                                if (args.Length == 0 || !bool.Parse(args[0]))
+                            if (args[0] == "nothing")
+                            {
+                                if (hooks.Count > 0)
+                                {
+                                    foreach (var hook in hooks)
+                                        hook.Dispose();
+                                    hooks.Clear();
+                                }
+
+                                WriteLine("Disabled invulnerability.");
+                            }
+                            else
+                            {
+                                if (hooks.Count == 0)
+                                    hooks.Add(new Hook(typeof(Player).GetMethod("Die"), (On.Player.hook_Die)StopDeath));
+
+                                if (hooks.Count < 3 && args[0] == "everything")
                                 {
                                     hooks.Add(new Hook(typeof(Creature).GetMethod("Violence"), (On.Creature.hook_Violence)StopViolence));
                                     hooks.Add(new Hook(typeof(Player).GetMethod("Update"), (On.Player.hook_Update)StopHarm));
                                 }
-                                WriteLine("Enabled invulnerability.");
-                            }
-                            else
-                            {
-                                foreach (var hook in hooks)
-                                    hook.Dispose();
-                                hooks.Clear();
-                                WriteLine("Disabled invulnerability.");
+
+                                WriteLine("Enabled invulnerability" + (args[0] == "death" ? " against death." : " against all harm."));
                             }
                         }
                         catch
@@ -974,9 +986,9 @@ namespace DevConsole
                             WriteLine("Failed to toggle invulnerability!");
                         }
                     })
-                    .Help("invuln [death_only: false]")
+                    .Help("invuln [to]")
                     .AutoComplete(new string[][] {
-                        new string[] { "true", "false" }
+                        new string[] { "everything", "death", "nothing" }
                     })
                     .Register();
             }
