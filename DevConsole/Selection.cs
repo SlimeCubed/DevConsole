@@ -263,6 +263,16 @@ namespace DevConsole
                         });
                     }
 
+                // Filter all creatures
+                case "creature":
+                    if (op != "") goto extraneousOp;
+                    return (game, objs) => objs.Where(obj => obj is AbstractCreature);
+
+                // Filter all objects
+                case "object":
+                    if (op != "") goto extraneousOp;
+                    return (game, objs) => objs.Where(obj => obj is not AbstractCreature);
+
                 // Filter all non-creatures and all dead creatures
                 case "alive":
                     if (op != "") goto extraneousOp;
