@@ -669,11 +669,13 @@ namespace DevConsole
                             game.world,
                             template,
                             null,
-                            SpawnRoom.GetWorldCoordinate(SpawnPos),
+                            DefaultPos.Room.GetWorldCoordinate(DefaultPos.Pos),
                             id ?? game.GetNewID()
                         );
-                        SpawnRoom.abstractRoom.AddEntity(crit);
-                        crit.RealizeInRoom();
+                        DefaultPos.Room.AddEntity(crit);
+
+                        if (DefaultPos.Room.realizedRoom != null)
+                            crit.RealizeInRoom();
                     }
                     catch(Exception e)
                     {
@@ -763,46 +765,51 @@ namespace DevConsole
                     var abstrobjs = Selection.SelectAbstractObjects(game, args.Length > 0 ? args[0] : null);
                     var logs = new DedupCache<string>();
 
-                    var pos = SpawnPos;
-                    var room = SpawnRoom;
-                    foreach (var abstrobj in abstrobjs)
-                    {
-
-                        bool newRoom = room.abstractRoom.index != abstrobj.Room.index;
-
-                        if (abstrobj.realizedObject is PhysicalObject o && o.room == null || abstrobj.realizedObject is Creature c && c.inShortcut)
+                    var pos = DefaultPos.Pos;
+                    var room = DefaultPos.Room;
+                    if (room != null)
+                        foreach (var abstrobj in abstrobjs)
                         {
-                            logs.Add("Failed to teleport from a shortcut.");
-                            continue;
-                        }
 
-                        abstrobj.Move(room.GetWorldCoordinate(pos));
+                            bool newRoom = room.index != abstrobj.Room.index;
 
-                        if (abstrobj.realizedObject is PhysicalObject physobj)
-                        {
-                            foreach (var chunk in physobj.bodyChunks)
+                            if (abstrobj.realizedObject is PhysicalObject o && o.room == null || abstrobj.realizedObject is Creature c && c.inShortcut)
                             {
-                                chunk.HardSetPosition(pos);
+                                logs.Add("Failed to teleport from a shortcut.");
+                                continue;
                             }
 
-                            if (newRoom)
-                            {
-                                physobj.NewRoom(room);
-                            }
-                        }
-                        else if (newRoom)
-                        {
-                            room.abstractRoom.AddEntity(abstrobj);
-                            abstrobj.RealizeInRoom();
+                            abstrobj.Move(room.GetWorldCoordinate(pos));
 
-                            if (abstrobj.realizedObject is not null)
-                                foreach (var chunk in abstrobj.realizedObject.bodyChunks)
+                            if (room.realizedRoom != null && abstrobj.realizedObject is PhysicalObject physobj)
+                            {
+                                foreach (var chunk in physobj.bodyChunks)
                                 {
                                     chunk.HardSetPosition(pos);
-                                    chunk.vel = Vector2.zero;
                                 }
+
+                                if (newRoom)
+                                {
+                                    physobj.NewRoom(room.realizedRoom);
+                                }
+                            }
+                            else if (newRoom)
+                            {
+                                room.AddEntity(abstrobj);
+
+                                if (room.realizedRoom != null)
+                                {
+                                    abstrobj.RealizeInRoom();
+
+                                    if (abstrobj.realizedObject is not null)
+                                        foreach (var chunk in abstrobj.realizedObject.bodyChunks)
+                                        {
+                                            chunk.HardSetPosition(pos);
+                                            chunk.vel = Vector2.zero;
+                                        }
+                                }
+                            }
                         }
-                    }
 
                     foreach (var line in logs.AsStrings())
                         WriteLine(line);
@@ -886,7 +893,7 @@ namespace DevConsole
                             continue;
                         }
 
-                        if (o.room != SpawnRoom)
+                        if (o.room.abstractRoom.index != DefaultPos.Room?.index)
                         {
                             logs.Add("Failed to pull an object in another room.");
                             continue;
@@ -899,7 +906,7 @@ namespace DevConsole
 
                         foreach (var chunk in o.bodyChunks)
                         {
-                            chunk.vel += (SpawnPos - chunk.pos).normalized * str;
+                            chunk.vel += (DefaultPos.Pos - chunk.pos).normalized * str;
                         }
 
                         foreach (var line in logs.AsStrings())
@@ -930,7 +937,7 @@ namespace DevConsole
                             continue;
                         }
 
-                        if (o.room != SpawnRoom)
+                        if (o.room.abstractRoom.index != DefaultPos.Room?.index)
                         {
                             logs.Add("Failed to push an object in another room.");
                             continue;
@@ -943,7 +950,7 @@ namespace DevConsole
 
                         foreach (var chunk in o.bodyChunks)
                         {
-                            chunk.vel -= (SpawnPos - chunk.pos).normalized * str;
+                            chunk.vel -= (DefaultPos.Pos - chunk.pos).normalized * str;
                         }
 
                         foreach (var line in logs.AsStrings())
@@ -1359,7 +1366,7 @@ namespace DevConsole
                 {
                     try
                     {
-                        var pos = SpawnRoom.GetWorldCoordinate(SpawnPos);
+                        var pos = DefaultPos.Room.GetWorldCoordinate(DefaultPos.Pos);
                         var id = game.GetNewID();
                         var type = (AbstractPhysicalObject.AbstractObjectType)Enum.Parse(typeof(AbstractPhysicalObject.AbstractObjectType), args[0], true);
                         AbstractPhysicalObject apo = null;
@@ -1374,7 +1381,7 @@ namespace DevConsole
                                 if (AbstractConsumable.IsTypeConsumable(type)) apo = new AbstractConsumable(game.world, type, null, pos, id, -1, -1, null);
                                 else apo = new AbstractPhysicalObject(game.world, type, null, pos, id); break;
                         }
-                        SpawnRoom.abstractRoom.AddEntity(apo);
+                        DefaultPos.Room.AddEntity(apo);
                         apo.RealizeInRoom();
                     }
                     catch (Exception e)
@@ -1404,12 +1411,12 @@ namespace DevConsole
                         }
 
                         var type = (DataPearl.AbstractDataPearl.DataPearlType)Enum.Parse(typeof(DataPearl.AbstractDataPearl.DataPearlType), args[0], true);
-                        var pearl = new DataPearl.AbstractDataPearl(game.world, AbstractPhysicalObject.AbstractObjectType.DataPearl, null, SpawnRoom.GetWorldCoordinate(SpawnPos), game.GetNewID(), -1, -1, null, type);
+                        var pearl = new DataPearl.AbstractDataPearl(game.world, AbstractPhysicalObject.AbstractObjectType.DataPearl, null, DefaultPos.Room.GetWorldCoordinate(DefaultPos.Pos), game.GetNewID(), -1, -1, null, type);
 
-                        SpawnRoom.abstractRoom.AddEntity(pearl);
-                        pearl.pos = SpawnRoom.GetWorldCoordinate(SpawnPos);
+                        DefaultPos.Room.AddEntity(pearl);
+                        pearl.pos = DefaultPos.Room.GetWorldCoordinate(DefaultPos.Pos);
                         pearl.RealizeInRoom();
-                        pearl.realizedObject.firstChunk.HardSetPosition(SpawnPos);
+                        pearl.realizedObject.firstChunk.HardSetPosition(DefaultPos.Pos);
 
                         WriteLine($"Spawned pearl: {type}");
                     }

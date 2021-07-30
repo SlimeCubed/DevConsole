@@ -29,7 +29,7 @@ namespace DevConsole
                 }
                 catch
                 {
-                    Pos = new RoomPos(game.cameras[0].room.abstractRoom, game.cameras[0].pos + (Vector2)Input.mousePosition);
+                    Pos = new RoomPos(game.cameras[0]?.room?.abstractRoom ?? Pos.Room, game.cameras[0].pos + (Vector2)Input.mousePosition);
                 }
             }
             else
