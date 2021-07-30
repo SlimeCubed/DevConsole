@@ -212,6 +212,10 @@ namespace DevConsole
                     {
                         return (game, objs) => objs.Take(limit);
                     }
+                    if (float.TryParse(arg, out float percent) && percent > 0 && percent <= 1)
+                    {
+                        return (game, objs) => objs.Take((int)(objs.Count() * percent));
+                    }
                     WriteLine($"Expected a positive integer: \"{arg}\"");
                     return NullFilter;
 
