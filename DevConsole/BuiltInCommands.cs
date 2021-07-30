@@ -461,7 +461,7 @@ namespace DevConsole
                         {
                             if (args[0] == "default")
                             {
-                                WriteLine("Failed to set spawning position!");
+                                WriteLine("Failed to set default position!");
                                 return;
                             }
                             InternalPositioning.GetDefaultPos = game =>
