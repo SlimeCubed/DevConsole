@@ -105,10 +105,9 @@ namespace DevConsole
                     if (args.Length == 0)
                         WriteLine("No command given to silence!");
                     else
-                        foreach (var cmd in args)
-                            RunCommandSilent(cmd);
+                        RunCommandSilent(GetNestedCommand(args, 0));
                 })
-                .Help("silence [command1] [command2?] [command3?] ...")
+                .Help("silence [command]")
                 .Register();
 
             // Speeds up the game
@@ -500,7 +499,7 @@ namespace DevConsole
                         {
                             var temp = InternalPositioning.Pos;
                             InternalPositioning.Pos = pos;
-                            RunNestedCommand(args, 1);
+                            RunCommand(GetNestedCommand(args, 1));
                             InternalPositioning.Pos = temp;
                         }
                     }
@@ -572,11 +571,10 @@ namespace DevConsole
                     else
                     {
                         // A list of commands was specified - bind them
-                        foreach (var cmd in args.Skip(skip).Where(s => !string.IsNullOrEmpty(s)))
-                            Bindings.Bind(e, cmd, syncWithUpdate);
+                        Bindings.Bind(e, GetNestedCommand(args, skip), syncWithUpdate);
                     }
                 })
-                .Help("bind [keycode] [event?] [timing?] [commmand1?] [command2?] ...")
+                .Help("bind [keycode] [event?] [timing?] [commmand?]")
                 .AutoComplete(args => args.Length switch
                 {
                     0 => GetKeyNames(),
@@ -631,22 +629,18 @@ namespace DevConsole
                     if (skip >= args.Length)
                     {
                         // Only the key was specified - unbind all
-                        foreach(var e in events)
-                            foreach(var sync in syncs)
+                        foreach (var e in events)
+                            foreach (var sync in syncs)
                                 Bindings.UnbindAll(e, sync);
                     }
                     else
                     {
-                        // A list of commands was specified - unbind them specifically
-                        foreach (var cmd in args.Skip(skip).Where(s => !string.IsNullOrEmpty(s)))
-                        {
-                            foreach (var e in events)
-                                foreach (var sync in syncs)
-                                    Bindings.Unbind(e, cmd, sync);
-                        }
+                        foreach (var e in events)
+                            foreach (var sync in syncs)
+                                Bindings.Unbind(e, GetNestedCommand(args, skip), sync);
                     }
                 })
-                .Help("unbind [keycode] [event?] [timing?] [commmand1?] [command2?] ...")
+                .Help("unbind [keycode] [event?] [timing?] [commmand?]")
                 .AutoComplete(args => args.Length switch
                 {
                     0 => GetKeyNames(),
@@ -670,9 +664,9 @@ namespace DevConsole
                     else if (args.Length == 1)
                         Aliases.RemoveAlias(args[0]);
                     else
-                        Aliases.SetAlias(args[0], args.Skip(1).ToArray());
+                        Aliases.SetAlias(args[0], new[] { GetNestedCommand(args, 1) });
                 })
-                .Help("alias [name] [command1?] [command2?] ...")
+                .Help("alias [name] [command?]")
                 .AutoComplete(args =>
                 {
                     if (args.Length == 0) return Aliases.GetAliases();
@@ -1618,7 +1612,7 @@ namespace DevConsole
             }
         }
 
-        static void RunNestedCommand(string[] args, int startIndex)
+        static string GetNestedCommand(string[] args, int startIndex)
         {
             var command = new StringBuilder();
             for (int i = startIndex; i < args.Length; i++)
@@ -1628,7 +1622,7 @@ namespace DevConsole
                 if (i < args.Length - 1)
                     command.Append(" ");
             }
-            RunCommand(command.ToString());
+            return command.ToString();
         }
 
         // May be used to clean up outputs that contain a lot of repeated lines
