@@ -820,7 +820,6 @@ namespace DevConsole
                     {
                         if (abstrobj is not AbstractCreature c)
                         {
-                            WriteLine($"Failed to kill creature because targeted object ({abstrobj.type}) is not a creature.");
                             continue;
                         }
 
