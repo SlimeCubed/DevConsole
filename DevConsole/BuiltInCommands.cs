@@ -664,7 +664,7 @@ namespace DevConsole
                     else if (args.Length == 1)
                         Aliases.RemoveAlias(args[0]);
                     else
-                        Aliases.SetAlias(args[0], new[] { GetNestedCommand(args, 1) });
+                        Aliases.SetAlias(args[0], GetNestedCommand(args, 1));
                 })
                 .Help("alias [name] [command?]")
                 .AutoComplete(args =>
