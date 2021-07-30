@@ -15,6 +15,11 @@ namespace DevConsole
     /// </summary>
     public static class Selection
     {
+        /// <summary>
+        /// Standard selection autocompletion.
+        /// </summary>
+        public static string[] Autocomplete => new[] { "me", "not_me", "players", "all", "none", "room" };
+
         delegate IEnumerable<AbstractPhysicalObject> FilterDel(RainWorldGame game, IEnumerable<AbstractPhysicalObject> objs);
 
         /// <summary>
@@ -99,7 +104,7 @@ namespace DevConsole
 
                 case "room":
                     var list = new List<AbstractPhysicalObject>();
-                    var room = DefaultPos.Room ?? firstPlayer?.Room;
+                    var room = TargetPos.Room ?? firstPlayer?.Room;
                     if (room == null)
                     {
                         WriteLine("Could not find a room to target!");
@@ -180,11 +185,11 @@ namespace DevConsole
 
             static float GetDistSquared(AbstractPhysicalObject o)
             {
-                if (o.Room.index != DefaultPos.Room?.index)
+                if (o.Room.index != TargetPos.Room?.index)
                 {
                     return float.PositiveInfinity;
                 }
-                return (o.pos.Tile.ToVector2() - DefaultPos.Pos).sqrMagnitude;
+                return (o.pos.Tile.ToVector2() - TargetPos.Pos).sqrMagnitude;
             }
 
 
@@ -259,11 +264,11 @@ namespace DevConsole
                     }
                     else
                     {
-                        if (DefaultPos.Room == null) return NullFilter;
+                        if (TargetPos.Room == null) return NullFilter;
 
                         return (game, objs) => objs.Where(obj => {
-                            if(obj.Room.index != DefaultPos.Room.index || obj.realizedObject == null) return false; // Limit to room, no matter what op
-                            return Compare(Vector2.Distance(obj.realizedObject.firstChunk.pos, DefaultPos.Pos), dist);
+                            if(obj.Room.index != TargetPos.Room.index || obj.realizedObject == null) return false; // Limit to room, no matter what op
+                            return Compare(Vector2.Distance(obj.realizedObject.firstChunk.pos, TargetPos.Pos), dist);
                         });
                     }
 

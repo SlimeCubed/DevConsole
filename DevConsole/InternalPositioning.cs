@@ -9,9 +9,9 @@ namespace DevConsole
 {
     // Controls where commands should place in-game effects
     // GameConsole.SpawnPos and GameConsole.SpawnRoom use this
-    internal static class DefaultPositioning
+    internal static class InternalPositioning
     {
-        public static RoomPos Pos { get; private set; }
+        public static RoomPos Pos { get; set; }
         public static Func<RainWorldGame, RoomPos> GetDefaultPos { private get; set; } = GetPosDefault;
 
         private static RainWorld rw;
