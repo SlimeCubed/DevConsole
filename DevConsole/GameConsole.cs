@@ -598,7 +598,7 @@ namespace DevConsole
 
         private void PauseGame(bool shouldPause)
         {
-            void BlockUpdate(On.RainWorld.orig_Update orig, RainWorld self) { }
+            static void BlockUpdate(On.RainWorld.orig_Update orig, RainWorld self) { }
 
             if (shouldPause && blockUpdateHook == null)
             {
@@ -634,7 +634,7 @@ namespace DevConsole
                     catch(Exception runException)
                     {
                         // Log a short description of what went wrong to the console, and an in-depth one to the console log
-                        string Indent(string str) => "  " + str.Replace(Environment.NewLine, Environment.NewLine + "    ");
+                        static string Indent(string str) => "  " + str.Replace(Environment.NewLine, Environment.NewLine + "    ");
 
                         WriteLine($"Failed to execute command from {commands[i].Registrant}!\nSee consoleLog.txt for more information.", Color.red);
 
