@@ -575,7 +575,7 @@ namespace DevConsole
                         Bindings.Bind(e, GetNestedCommand(args, skip), syncWithUpdate);
                     }
                 })
-                .Help("bind [keycode] [event?] [timing?] [commmand?]")
+                .Help("bind [keycode] [event?] [timing?] [command?]+")
                 .AutoComplete(args => args.Length switch
                 {
                     0 => GetKeyNames(),
@@ -641,7 +641,7 @@ namespace DevConsole
                                 Bindings.Unbind(e, GetNestedCommand(args, skip), sync);
                     }
                 })
-                .Help("unbind [keycode] [event?] [timing?] [commmand?]")
+                .Help("unbind [keycode] [event?] [timing?] [commmand?]+")
                 .AutoComplete(args => args.Length switch
                 {
                     0 => GetKeyNames(),
@@ -667,7 +667,7 @@ namespace DevConsole
                     else
                         Aliases.SetAlias(args[0], GetNestedCommand(args, 1));
                 })
-                .Help("alias [name] [command?]")
+                .Help("alias [name] [command?]+")
                 .AutoComplete(args =>
                 {
                     if (args.Length == 0) return Aliases.GetAliases();
