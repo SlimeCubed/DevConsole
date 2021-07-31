@@ -1,5 +1,4 @@
-﻿using BepInEx;
-using RWCustom;
+﻿using RWCustom;
 using System.Linq;
 using UnityEngine;
 
@@ -23,8 +22,7 @@ namespace DevConsole
         {
             try
             {
-                // Note: `string.IsNullOrWhiteSpace()` is an extension method. It will not throw a nullref.
-                if (arg.IsNullOrWhiteSpace() || !(arg[0] == '<' && arg[arg.Length - 1] == '>'))
+                if (string.IsNullOrEmpty(arg?.Trim()) || !(arg[0] == '<' && arg[arg.Length - 1] == '>'))
                 {
                     pos = GameConsole.TargetPos;
                     return false;
