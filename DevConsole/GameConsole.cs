@@ -131,14 +131,9 @@ namespace DevConsole
         public static Color BackColor => backColor;
 
         /// <summary>
-        /// If a command operates on a position, it should be focused on this position inside of <see cref="SpawnRoom"/>.
+        /// The current default position. This can be set by the default_pos command.
         /// </summary>
-        public static Vector2 SpawnPos => Positioning.pos.pos;
-
-        /// <summary>
-        /// If a command operators on a position, it should be focused on <see cref="SpawnPos"/> inside of this room.
-        /// </summary>
-        public static Room SpawnRoom => Positioning.pos.room;
+        public static RoomPos TargetPos => InternalPositioning.Pos;
 
         /// <summary>
         /// Gets or sets the font used for the console.
@@ -356,7 +351,7 @@ namespace DevConsole
             Bindings.RunFrame();
 
             // Update target position
-            Positioning.Update();
+            InternalPositioning.Update();
 
             CaptureInput(false);
 
@@ -575,7 +570,7 @@ namespace DevConsole
             BuiltInCommands.RegisterCommands();
 
             // Very important
-            Aliases.SetAlias("slug", new string[] { "echo \"jjjjjjjjjjjjjjjjjjjjg1                                     .wjjjjjjjjjjjjjjjjjjjjjjjjj\" \"jir.            1lBF:                                     1ljjh,            ,Lljjjjj\" \"ji;,            .7Bjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj2:.           .1ljjjjj\" \"jl1.                .zBjjjjjj4:                     ;IBjR:.                :Mjjjj\" \"jjjjjjE;.                                                                  .7Bjjjjjjjjj\" \"  1ljjjjjj81                                                             ,sBd;.     \" \"      .Cjjjf;.     .wjjlc.                          ,4BP:.     .YjjjjjjQ;.      \" \" .:JBjjjjH:..1ljjjjjjjjjjjj0;.               .@jjjjjjjjjjjR;,.:HjjjjjQ;,.     \" \" ,Wjf;.      ,rBjjjjjjjjjjj0;.               .7BjjjjjjjjjjM:      .7lD1.     \" \" ,7lW,           .YB@.                         .1Bjlc.           .cgh;,     \" \" ,YlW:.                         ,rBjjjjjjD:.                         ,LlM;,     \" \" ,YlW:.                                                                 ,VBi1.     \" \" ,YlW:.                                                                 ,VBi1.     \" \" ,YlW:.                                                                 ,VBi1.     \" \" ,wM;.                                                                 .:hM;,      \" \" ,YlM;.                                                                 ,7lM;,     \"" });
+            Aliases.SetAlias("slug", "echo \"jjjjjjjjjjjjjjjjjjjjg1                                     .wjjjjjjjjjjjjjjjjjjjjjjjjj\" \"jir.            1lBF:                                     1ljjh,            ,Lljjjjj\" \"ji;,            .7Bjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj2:.           .1ljjjjj\" \"jl1.                .zBjjjjjj4:                     ;IBjR:.                :Mjjjj\" \"jjjjjjE;.                                                                  .7Bjjjjjjjjj\" \"  1ljjjjjj81                                                             ,sBd;.     \" \"      .Cjjjf;.     .wjjlc.                          ,4BP:.     .YjjjjjjQ;.      \" \" .:JBjjjjH:..1ljjjjjjjjjjjj0;.               .@jjjjjjjjjjjR;,.:HjjjjjQ;,.     \" \" ,Wjf;.      ,rBjjjjjjjjjjj0;.               .7BjjjjjjjjjjM:      .7lD1.     \" \" ,7lW,           .YB@.                         .1Bjlc.           .cgh;,     \" \" ,YlW:.                         ,rBjjjjjjD:.                         ,LlM;,     \" \" ,YlW:.                                                                 ,VBi1.     \" \" ,YlW:.                                                                 ,VBi1.     \" \" ,YlW:.                                                                 ,VBi1.     \" \" ,wM;.                                                                 .:hM;,      \" \" ,YlM;.                                                                 ,7lM;,     \"");
             
             RunStartupCommands();
         }
@@ -603,7 +598,7 @@ namespace DevConsole
 
         private void PauseGame(bool shouldPause)
         {
-            void BlockUpdate(On.RainWorld.orig_Update orig, RainWorld self) { }
+            static void BlockUpdate(On.RainWorld.orig_Update orig, RainWorld self) { }
 
             if (shouldPause && blockUpdateHook == null)
             {
@@ -639,7 +634,7 @@ namespace DevConsole
                     catch(Exception runException)
                     {
                         // Log a short description of what went wrong to the console, and an in-depth one to the console log
-                        string Indent(string str) => "  " + str.Replace(Environment.NewLine, Environment.NewLine + "    ");
+                        static string Indent(string str) => "  " + str.Replace(Environment.NewLine, Environment.NewLine + "    ");
 
                         WriteLine($"Failed to execute command from {commands[i].Registrant}!\nSee consoleLog.txt for more information.", Color.red);
 

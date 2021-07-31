@@ -1,62 +1,59 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using RWCustom;
 using System.Linq;
-using System.Text;
 using UnityEngine;
-using Object = UnityEngine.Object;
 
 namespace DevConsole
 {
-    // Controls where commands should place in-game effects
-    // GameConsole.SpawnPos and GameConsole.SpawnRoom use this
-    internal static class Positioning
+    /// <summary>
+    /// Contains methods for getting an in-game position from a position string.
+    /// </summary>
+    public static class Positioning
     {
-        public static RoomPos pos;
-        public static Func<RainWorldGame, RoomPos> getPos = GetPosDefault;
+        /// <summary>
+        /// Standard positioning autocompletion.
+        /// </summary>
+        public static string[] Autocomplete => Selection.Autocomplete.Select(s => "<" + s + ">").Union(new[] { "<default>", "<cursor>", "<camera>" }).ToArray();
 
-        private static RainWorld rw;
-
-        public static void Update()
+        /// <summary>
+        /// Parses <paramref name="arg"/> and returns a position within <paramref name="game"/>.
+        /// </summary>
+        /// <returns><see langword="true"/> if the operation was successful; otherwise, <see langword="false"/>.</returns>
+        public static bool TryGetPosition(RainWorldGame game, string arg, out RoomPos pos)
         {
-            if (rw == null) rw = Object.FindObjectOfType<RainWorld>();
-            if (rw == null) return;
-
-            if (rw.processManager.currentMainLoop is RainWorldGame game && getPos != null)
+            try
             {
-                try
+                if (string.IsNullOrEmpty(arg?.Trim()) || !(arg[0] == '<' && arg[arg.Length - 1] == '>'))
                 {
-                    pos = getPos(game);
+                    pos = GameConsole.TargetPos;
+                    return false;
                 }
-                catch
-                {
-                    pos = new RoomPos(Input.mousePosition);
-                }
+
+                pos = ParsePosition(game, arg.Substring(1, arg.Length - 2).ToLower());
+                return true;
             }
-            else
-                pos = new RoomPos(Input.mousePosition);
+            catch
+            {
+                pos = GameConsole.TargetPos;
+                return false;
+            }
         }
 
-        public static RoomPos GetPosDefault(RainWorldGame game)
+        private static RoomPos ParsePosition(RainWorldGame game, string arg)
         {
-            return new RoomPos(game.Players[0].realizedObject.room, game.Players[0].realizedObject.firstChunk.pos);
-        }
-
-        public struct RoomPos
-        {
-            public readonly Room room;
-            public readonly Vector2 pos;
-
-            public RoomPos(Room room, Vector2 pos)
+            switch (arg)
             {
-                this.room = room;
-                this.pos = pos;
+                case "default": return GameConsole.TargetPos;
+                case "cursor": return new RoomPos(game.cameras[0].room.abstractRoom, game.cameras[0].pos + (Vector2)Input.mousePosition);
+                case "camera": return new RoomPos(game.cameras[0].room.abstractRoom, game.cameras[0].pos + game.cameras[0].sSize / 2f);
             }
 
-            public RoomPos(Vector2 pos)
+            var selection = Selection.SelectAbstractObjects(game, arg);
+            if (selection.FirstOrDefault() is AbstractPhysicalObject o)
             {
-                room = null;
-                this.pos = pos;
+                return new RoomPos(o.Room, o.realizedObject?.firstChunk?.pos ?? o.pos.Tile.GetMiddleOfTile());
             }
+
+            throw new();
         }
     }
 }
