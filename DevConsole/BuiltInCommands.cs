@@ -107,7 +107,7 @@ namespace DevConsole
                     else
                         RunCommandSilent(GetNestedCommand(args, 0));
                 })
-                .Help("silence [command]")
+                .Help("silence [command]+")
                 .Register();
 
             // Speeds up the game
@@ -480,12 +480,13 @@ namespace DevConsole
                 })
                 .Register();
 
+            // Executes a command at a position
             new CommandBuilder("at")
                 .RunGame((game, args) =>
                 {
                     if (args.Length == 0)
                     {
-                        WriteLine("at [pos] [command]");
+                        WriteLine("at [pos] [command]+");
                     }
                     else
                     {
@@ -504,19 +505,19 @@ namespace DevConsole
                         }
                     }
                 })
-                .Help("at [pos] [command]")
+                .Help("at [pos] [command]+")
                 .AutoComplete(new string[][]{
                     Positioning.Autocomplete, null
                 })
                 .Register();
 
-            // Control positioning of a command
+            // Executes a group of commands sequentially
             new CommandBuilder("group")
-                .RunGame((game, args) =>
+                .Run(args =>
                 {
                     if (args.Length == 0)
                     {
-                        WriteLine("group [command]+");
+                        WriteLine("group [command1] [command2?] ...");
                     }
                     else
                     {
@@ -526,7 +527,7 @@ namespace DevConsole
                         }
                     }
                 })
-                .Help("group [command]+")
+                .Help("group [command1] [command2?] ...")
                 .Register();
 
             #endregion Misc
@@ -1617,7 +1618,7 @@ namespace DevConsole
             var command = new StringBuilder();
             for (int i = startIndex; i < args.Length; i++)
             {
-                command.Append(args[i]);
+                command.Append(args[i].EscapeCommandLine());
 
                 if (i < args.Length - 1)
                     command.Append(" ");
