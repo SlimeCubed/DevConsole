@@ -10,9 +10,22 @@ using UnityEngine;
 
 namespace DevConsole
 {
-    // Helper methods for selecting objects from the console
-    internal class Selection
+    /// <summary>
+    /// Contains methods for selecting abstract physical objects from a selector string in-game.
+    /// </summary>
+    public static class Selection
     {
+        /// <summary>
+        /// Standard selection autocompletion.
+        /// </summary>
+        public static string[] Autocomplete => new[] { "me", "not_me", "players", "all", "none", "room" };
+
+        delegate IEnumerable<AbstractPhysicalObject> FilterDel(RainWorldGame game, IEnumerable<AbstractPhysicalObject> objs);
+
+        /// <summary>
+        /// Parses <paramref name="arg"/> and selects abstract objects within <paramref name="game"/>.
+        /// </summary>
+        /// <returns>The selected objects.</returns>
         public static IEnumerable<AbstractPhysicalObject> SelectAbstractObjects(RainWorldGame game, string arg)
         {
             var args = arg?.Split(',');
@@ -25,33 +38,19 @@ namespace DevConsole
             {
                 // Find a base group to select from
                 // If only a filter is specified, filter from all
-                int filterIndex = 1;
                 var objs = FindBaseAbstractObjects(game, args[0]);
-                if (objs == null)
-                {
-                    if (GetAbstractObjectFilter(game, args[0]) == null)
-                    {
-                        WriteLine($"Unknown selector: \"{args[0]}\"");
-                        return new AbstractPhysicalObject[0];
-                    }
-                    else
-                    {
-                        filterIndex = 0;
-                        objs = FindBaseAbstractObjects(game, "all");
-                    }
-                }
 
                 // Filter based on the args that come after
-                for (; filterIndex < args.Length; filterIndex++)
+                for (int i = 1; i < args.Length; i++)
                 {
-                    var filter = GetAbstractObjectFilter(game, args[filterIndex]);
-                    if(filter == null)
+                    var filter = GetAbstractObjectFilter(game, args[i]);
+                    if (filter == null)
                     {
-                        WriteLine($"Unknown selection filter: {args[filterIndex]}");
+                        WriteLine($"Unknown selection filter: {args[i]}");
                     }
                     else
                     {
-                        objs = objs.Where(obj => filter(game, obj));
+                        objs = filter(game, objs);
                     }
                 }
 
@@ -105,7 +104,7 @@ namespace DevConsole
 
                 case "room":
                     var list = new List<AbstractPhysicalObject>();
-                    var room = SpawnRoom?.abstractRoom ?? firstPlayer?.Room;
+                    var room = TargetPos.Room ?? firstPlayer?.Room;
                     if (room == null)
                     {
                         WriteLine("Could not find a room to target!");
@@ -141,7 +140,7 @@ namespace DevConsole
         }
 
         private static readonly Regex parseFilter = new(@"^(?<type>[\w\s]+)((?<op>!=|<=|>=|=|<|>)(?<arg>.+))?$", RegexOptions.ExplicitCapture);
-        private static Func<RainWorldGame, AbstractPhysicalObject, bool> GetAbstractObjectFilter(RainWorldGame game, string filter)
+        private static FilterDel GetAbstractObjectFilter(RainWorldGame game, string filter)
         {
             var match = parseFilter.Match(filter);
             var type = match.Groups["type"].Value.Trim();
@@ -184,12 +183,48 @@ namespace DevConsole
 
             bool IsInverted() => Equate(true, false);
 
-            static bool NullFilter(RainWorldGame game, AbstractPhysicalObject obj) => false;
+            static float GetDistSquared(AbstractPhysicalObject o)
+            {
+                if (o.Room.index != TargetPos.Room?.index)
+                {
+                    return float.PositiveInfinity;
+                }
+                return (o.pos.Tile.ToVector2() - TargetPos.Pos).sqrMagnitude;
+            }
+
+
+            static IEnumerable<AbstractPhysicalObject> NullFilter(RainWorldGame game, IEnumerable<AbstractPhysicalObject> objs) => objs;
 
             // Here's where the real logic happens
             // Generate a delegate that will filter using the specified type, operator, and argument
             switch (type)
             {
+                case "sort":
+                    if (op != "=") goto extraneousOp;
+                    switch (arg)
+                    {
+                        case "arbitrary": return (game, objs) => objs;
+                        case "random": return (game, objs) => objs.OrderBy(a => UnityEngine.Random.value);
+                        case "nearest": return (game, objs) => objs.OrderBy(GetDistSquared);
+                        case "farthest": return (game, objs) => objs.OrderByDescending(GetDistSquared);
+                    }
+                    WriteLine($"Expected one of {{arbitrary, random, nearest, farthest}}: \"{arg}\"");
+                    return NullFilter;
+
+                case "limit":
+                    if (op != "=") goto extraneousOp;
+                    if (int.TryParse(arg, out int limit) && limit > 0)
+                    {
+                        return (game, objs) => objs.Take(limit);
+                    }
+                    if (float.TryParse(arg, out float percent) && percent > 0 && percent <= 1)
+                    {
+                        return (game, objs) => objs.Take((int)(objs.Count() * percent));
+                    }
+                    WriteLine($"Expected a positive integer: \"{arg}\"");
+                    return NullFilter;
+
+
                 // Filter by object type and creature type
                 case "type":
 
@@ -198,18 +233,18 @@ namespace DevConsole
                     try
                     {
                         var testType = (ObjectType)Enum.Parse(typeof(ObjectType), arg, true);
-                        return (game, obj) => Equate((int)obj.type, (int)testType);
+                        return (game, objs) => objs.Where(obj => Equate((int)obj.type, (int)testType));
                     }
                     catch { }
 
                     try
                     {
                         var testType = (CreatureType)Enum.Parse(typeof(CreatureType), arg, true);
-                        return (game, obj) =>
+                        return (game, objs) => objs.Where(obj =>
                         {
                             if (obj is not AbstractCreature crit) return IsInverted(); // Do not limit to creatures when inverted
                             return Equate((int)crit.creatureTemplate.type, (int)testType);
-                        };
+                        });
                     }
                     catch { }
 
@@ -229,23 +264,33 @@ namespace DevConsole
                     }
                     else
                     {
-                        if (SpawnRoom == null) return NullFilter;
+                        if (TargetPos.Room == null) return NullFilter;
 
-                        return (game, obj) => {
-                            if(obj.Room.index != SpawnRoom.abstractRoom.index || obj.realizedObject == null) return false; // Limit to room, no matter what op
-                            return Compare(Vector2.Distance(obj.realizedObject.firstChunk.pos, SpawnPos), dist);
-                        };
+                        return (game, objs) => objs.Where(obj => {
+                            if(obj.Room.index != TargetPos.Room.index || obj.realizedObject == null) return false; // Limit to room, no matter what op
+                            return Compare(Vector2.Distance(obj.realizedObject.firstChunk.pos, TargetPos.Pos), dist);
+                        });
                     }
+
+                // Filter all creatures
+                case "creature":
+                    if (op != "") goto extraneousOp;
+                    return (game, objs) => objs.Where(obj => obj is AbstractCreature);
+
+                // Filter all objects
+                case "object":
+                    if (op != "") goto extraneousOp;
+                    return (game, objs) => objs.Where(obj => obj is not AbstractCreature);
 
                 // Filter all non-creatures and all dead creatures
                 case "alive":
                     if (op != "") goto extraneousOp;
-                    return (game, obj) => (obj is AbstractCreature crit) && crit.state.alive;
+                    return (game, objs) => objs.Where(obj => (obj is AbstractCreature crit) && crit.state.alive);
 
                 // Filter all non-creatures and all alive creatures
                 case "dead":
                     if (op != "") goto extraneousOp;
-                    return (game, obj) => (obj is AbstractCreature crit) && !crit.state.alive;
+                    return (game, objs) => objs.Where(obj => (obj is AbstractCreature crit) && !crit.state.alive);
 
                 // Filter all by default
                 default:

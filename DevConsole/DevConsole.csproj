@@ -80,13 +80,16 @@
     <Compile Include="Commands\IAutoCompletable.cs" />
     <Compile Include="Config\ConfigGenerator.cs" />
     <Compile Include="Config\ConsoleConfig.cs" />
+    <Compile Include="InternalPositioning.cs" />
     <Compile Include="DevConsoleMod.cs" />
     <Compile Include="Commands\ICommandHandler.cs" />
     <Compile Include="CustomFonts.cs" />
+    <Compile Include="Extensions.cs" />
     <Compile Include="GameConsole.cs" />
     <Compile Include="HookUtils.cs" />
     <Compile Include="Positioning.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="RoomPos.cs" />
     <Compile Include="Selection.cs" />
     <Compile Include="StringEx.cs" />
   </ItemGroup>

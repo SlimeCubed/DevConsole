@@ -10,16 +10,16 @@ namespace DevConsole
     /// </summary>
     public static class Aliases
     {
-        private static Dictionary<string, string[]> aliases = new Dictionary<string, string[]>();
+        private static readonly Dictionary<string, string> aliases = new Dictionary<string, string>();
 
         /// <summary>
         /// Creates or overwrites a command that executes the given commands.
         /// </summary>
         /// <param name="name">The name of the new command.</param>
-        /// <param name="commands">The list of commands to run.</param>
-        public static void SetAlias(string name, string[] commands)
+        /// <param name="command">The list of commands to run.</param>
+        public static void SetAlias(string name, string command)
         {
-            aliases[name] = (string[])commands.Clone();
+            aliases[name] = command;
         }
 
         /// <summary>
@@ -36,9 +36,9 @@ namespace DevConsole
         /// </summary>
         /// <param name="name">The name of the aliased command.</param>
         /// <returns>An array of commands to be executed or <c>null</c> if no such alias exists.</returns>
-        public static string[] GetAlias(string name)
+        public static string GetAlias(string name)
         {
-            return aliases.TryGetValue(name, out string[] cmds) ? cmds : null;
+            return aliases.TryGetValue(name, out string cmds) ? cmds : null;
         }
 
         /// <summary>
@@ -49,10 +49,9 @@ namespace DevConsole
         public static bool RunAlias(string[] args)
         {
             if (args.Length == 0) return false;
-            var commands = GetAlias(args[0]);
-            if (commands == null) return false;
-            foreach (var cmd in commands)
-                GameConsole.RunCommand(cmd);
+            var command = GetAlias(args[0]);
+            if (command == null) return false;
+            GameConsole.RunCommand(command);
             return true;
         }
 

@@ -105,10 +105,9 @@ namespace DevConsole
                     if (args.Length == 0)
                         WriteLine("No command given to silence!");
                     else
-                        foreach (var cmd in args)
-                            RunCommandSilent(cmd);
+                        RunCommandSilent(GetNestedCommand(args, 0));
                 })
-                .Help("silence [command1] [command2?] [command3?] ...")
+                .Help("silence [command]+")
                 .Register();
 
             // Speeds up the game
@@ -448,46 +447,87 @@ namespace DevConsole
             }
 
             // Control positioning of commands
-            new CommandBuilder("target_pos")
+            new CommandBuilder("default_pos")
                 .Run(args =>
                 {
                     if (args.Length == 0)
                     {
-                        WriteLine("target_pos player [player_num: 0]");
-                        WriteLine("target_pos mouse [camera_num: 0]");
-                        WriteLine("target_pos camera [camera_num: 0]");
+                        WriteLine("default_pos [pos]");
                     }
                     else
                     {
                         try
                         {
-                            int num = (args.Length > 1) ? int.Parse(args[1]) : 0;
-                            switch (args[0])
+                            if (args[0] == "default")
                             {
-                                case "player":
-                                    Positioning.getPos = game => new Positioning.RoomPos(game.Players[num].realizedObject.room, game.Players[num].realizedObject.firstChunk.pos);
-                                    WriteLine("Commands will target the player.");
-                                    break;
-                                case "mouse":
-                                    Positioning.getPos = game => new Positioning.RoomPos(game.cameras[num].room, game.cameras[num].pos + (Vector2)Input.mousePosition);
-                                    WriteLine("Commands will target the mouse.");
-                                    break;
-                                case "camera":
-                                    Positioning.getPos = game => new Positioning.RoomPos(game.cameras[num].room, game.cameras[num].pos + game.cameras[num].sSize / 2f);
-                                    WriteLine("Commands will target the center of the camera.");
-                                    break;
+                                WriteLine("Failed to set default position!");
+                                return;
                             }
+                            InternalPositioning.GetDefaultPos = game =>
+                            {
+                                return Positioning.TryGetPosition(game, args[0], out var pos) ? pos : InternalPositioning.Pos;
+                            };
+                            WriteLine("Set default position.");
                         }
                         catch
                         {
-                            WriteLine("Failed to set spawning position!");
                         }
                     }
                 })
-                .Help("target_pos [target?] [arg?]")
+                .Help("default_pos [pos]")
                 .AutoComplete(new string[][] {
-                    new string[] { "player", "mouse", "camera" }
+                    Positioning.Autocomplete
                 })
+                .Register();
+
+            // Executes a command at a position
+            new CommandBuilder("at")
+                .RunGame((game, args) =>
+                {
+                    if (args.Length == 0)
+                    {
+                        WriteLine("at [pos] [command]+");
+                    }
+                    else
+                    {
+                        if (args.Length < 2)
+                        {
+                            WriteLine($"Failed to execute 'at' command: missing [command] argument.");
+                            return;
+                        }
+
+                        if (Positioning.TryGetPosition(game, args[0], out var pos))
+                        {
+                            var temp = InternalPositioning.Pos;
+                            InternalPositioning.Pos = pos;
+                            RunCommand(GetNestedCommand(args, 1));
+                            InternalPositioning.Pos = temp;
+                        }
+                    }
+                })
+                .Help("at [pos] [command]+")
+                .AutoComplete(new string[][]{
+                    Positioning.Autocomplete, null
+                })
+                .Register();
+
+            // Executes a group of commands sequentially
+            new CommandBuilder("group")
+                .Run(args =>
+                {
+                    if (args.Length == 0)
+                    {
+                        WriteLine("group [command1] [command2?] ...");
+                    }
+                    else
+                    {
+                        foreach (var arg in args)
+                        {
+                            RunCommand(arg);
+                        }
+                    }
+                })
+                .Help("group [command1] [command2?] ...")
                 .Register();
 
             #endregion Misc
@@ -532,11 +572,10 @@ namespace DevConsole
                     else
                     {
                         // A list of commands was specified - bind them
-                        foreach (var cmd in args.Skip(skip).Where(s => !string.IsNullOrEmpty(s)))
-                            Bindings.Bind(e, cmd, syncWithUpdate);
+                        Bindings.Bind(e, GetNestedCommand(args, skip), syncWithUpdate);
                     }
                 })
-                .Help("bind [keycode] [event?] [timing?] [commmand1?] [command2?] ...")
+                .Help("bind [keycode] [event?] [timing?] [command?]+")
                 .AutoComplete(args => args.Length switch
                 {
                     0 => GetKeyNames(),
@@ -591,22 +630,18 @@ namespace DevConsole
                     if (skip >= args.Length)
                     {
                         // Only the key was specified - unbind all
-                        foreach(var e in events)
-                            foreach(var sync in syncs)
+                        foreach (var e in events)
+                            foreach (var sync in syncs)
                                 Bindings.UnbindAll(e, sync);
                     }
                     else
                     {
-                        // A list of commands was specified - unbind them specifically
-                        foreach (var cmd in args.Skip(skip).Where(s => !string.IsNullOrEmpty(s)))
-                        {
-                            foreach (var e in events)
-                                foreach (var sync in syncs)
-                                    Bindings.Unbind(e, cmd, sync);
-                        }
+                        foreach (var e in events)
+                            foreach (var sync in syncs)
+                                Bindings.Unbind(e, GetNestedCommand(args, skip), sync);
                     }
                 })
-                .Help("unbind [keycode] [event?] [timing?] [commmand1?] [command2?] ...")
+                .Help("unbind [keycode] [event?] [timing?] [commmand?]+")
                 .AutoComplete(args => args.Length switch
                 {
                     0 => GetKeyNames(),
@@ -630,9 +665,9 @@ namespace DevConsole
                     else if (args.Length == 1)
                         Aliases.RemoveAlias(args[0]);
                     else
-                        Aliases.SetAlias(args[0], args.Skip(1).ToArray());
+                        Aliases.SetAlias(args[0], GetNestedCommand(args, 1));
                 })
-                .Help("alias [name] [command1?] [command2?] ...")
+                .Help("alias [name] [command?]+")
                 .AutoComplete(args =>
                 {
                     if (args.Length == 0) return Aliases.GetAliases();
@@ -669,11 +704,13 @@ namespace DevConsole
                             game.world,
                             template,
                             null,
-                            SpawnRoom.GetWorldCoordinate(SpawnPos),
+                            TargetPos.Room.GetWorldCoordinate(TargetPos.Pos),
                             id ?? game.GetNewID()
                         );
-                        SpawnRoom.abstractRoom.AddEntity(crit);
-                        crit.RealizeInRoom();
+                        TargetPos.Room.AddEntity(crit);
+
+                        if (TargetPos.Room.realizedRoom != null)
+                            crit.RealizeInRoom();
                     }
                     catch(Exception e)
                     {
@@ -766,46 +803,51 @@ namespace DevConsole
                     var abstrobjs = Selection.SelectAbstractObjects(game, args.Length > 0 ? args[0] : null);
                     var logs = new DedupCache<string>();
 
-                    var pos = SpawnPos;
-                    var room = SpawnRoom;
-                    foreach (var abstrobj in abstrobjs)
-                    {
-
-                        bool newRoom = room.abstractRoom.index != abstrobj.Room.index;
-
-                        if (abstrobj.realizedObject is PhysicalObject o && o.room == null || abstrobj.realizedObject is Creature c && c.inShortcut)
+                    var pos = TargetPos.Pos;
+                    var room = TargetPos.Room;
+                    if (room != null)
+                        foreach (var abstrobj in abstrobjs)
                         {
-                            logs.Add("Failed to teleport from a shortcut.");
-                            continue;
-                        }
 
-                        abstrobj.Move(room.GetWorldCoordinate(pos));
+                            bool newRoom = room.index != abstrobj.Room.index;
 
-                        if (abstrobj.realizedObject is PhysicalObject physobj)
-                        {
-                            foreach (var chunk in physobj.bodyChunks)
+                            if (abstrobj.realizedObject is PhysicalObject o && o.room == null || abstrobj.realizedObject is Creature c && c.inShortcut)
                             {
-                                chunk.HardSetPosition(pos);
+                                logs.Add("Failed to teleport from a shortcut.");
+                                continue;
                             }
 
-                            if (newRoom)
-                            {
-                                physobj.NewRoom(room);
-                            }
-                        }
-                        else if (newRoom)
-                        {
-                            room.abstractRoom.AddEntity(abstrobj);
-                            abstrobj.RealizeInRoom();
+                            abstrobj.Move(room.GetWorldCoordinate(pos));
 
-                            if (abstrobj.realizedObject is not null)
-                                foreach (var chunk in abstrobj.realizedObject.bodyChunks)
+                            if (room.realizedRoom != null && abstrobj.realizedObject is PhysicalObject physobj)
+                            {
+                                foreach (var chunk in physobj.bodyChunks)
                                 {
                                     chunk.HardSetPosition(pos);
-                                    chunk.vel = Vector2.zero;
                                 }
+
+                                if (newRoom)
+                                {
+                                    physobj.NewRoom(room.realizedRoom);
+                                }
+                            }
+                            else if (newRoom)
+                            {
+                                room.AddEntity(abstrobj);
+
+                                if (room.realizedRoom != null)
+                                {
+                                    abstrobj.RealizeInRoom();
+
+                                    if (abstrobj.realizedObject is not null)
+                                        foreach (var chunk in abstrobj.realizedObject.bodyChunks)
+                                        {
+                                            chunk.HardSetPosition(pos);
+                                            chunk.vel = Vector2.zero;
+                                        }
+                                }
+                            }
                         }
-                    }
 
                     foreach (var line in logs.AsStrings())
                         WriteLine(line);
@@ -823,7 +865,6 @@ namespace DevConsole
                     {
                         if (abstrobj is not AbstractCreature c)
                         {
-                            WriteLine($"Failed to kill creature because targeted object ({abstrobj.type}) is not a creature.");
                             continue;
                         }
 
@@ -890,7 +931,7 @@ namespace DevConsole
                             continue;
                         }
 
-                        if (o.room != SpawnRoom)
+                        if (o.room.abstractRoom.index != TargetPos.Room?.index)
                         {
                             logs.Add("Failed to pull an object in another room.");
                             continue;
@@ -903,7 +944,7 @@ namespace DevConsole
 
                         foreach (var chunk in o.bodyChunks)
                         {
-                            chunk.vel += (SpawnPos - chunk.pos).normalized * str;
+                            chunk.vel += (TargetPos.Pos - chunk.pos).normalized * str;
                         }
 
                         foreach (var line in logs.AsStrings())
@@ -934,7 +975,7 @@ namespace DevConsole
                             continue;
                         }
 
-                        if (o.room != SpawnRoom)
+                        if (o.room.abstractRoom.index != TargetPos.Room?.index)
                         {
                             logs.Add("Failed to push an object in another room.");
                             continue;
@@ -947,7 +988,7 @@ namespace DevConsole
 
                         foreach (var chunk in o.bodyChunks)
                         {
-                            chunk.vel -= (SpawnPos - chunk.pos).normalized * str;
+                            chunk.vel -= (TargetPos.Pos - chunk.pos).normalized * str;
                         }
 
                         foreach (var line in logs.AsStrings())
@@ -1363,7 +1404,7 @@ namespace DevConsole
                 {
                     try
                     {
-                        var pos = SpawnRoom.GetWorldCoordinate(SpawnPos);
+                        var pos = TargetPos.Room.GetWorldCoordinate(TargetPos.Pos);
                         var id = game.GetNewID();
                         var type = (AbstractPhysicalObject.AbstractObjectType)Enum.Parse(typeof(AbstractPhysicalObject.AbstractObjectType), args[0], true);
                         AbstractPhysicalObject apo = null;
@@ -1378,7 +1419,7 @@ namespace DevConsole
                                 if (AbstractConsumable.IsTypeConsumable(type)) apo = new AbstractConsumable(game.world, type, null, pos, id, -1, -1, null);
                                 else apo = new AbstractPhysicalObject(game.world, type, null, pos, id); break;
                         }
-                        SpawnRoom.abstractRoom.AddEntity(apo);
+                        TargetPos.Room.AddEntity(apo);
                         apo.RealizeInRoom();
                     }
                     catch (Exception e)
@@ -1408,12 +1449,12 @@ namespace DevConsole
                         }
 
                         var type = (DataPearl.AbstractDataPearl.DataPearlType)Enum.Parse(typeof(DataPearl.AbstractDataPearl.DataPearlType), args[0], true);
-                        var pearl = new DataPearl.AbstractDataPearl(game.world, AbstractPhysicalObject.AbstractObjectType.DataPearl, null, SpawnRoom.GetWorldCoordinate(SpawnPos), game.GetNewID(), -1, -1, null, type);
+                        var pearl = new DataPearl.AbstractDataPearl(game.world, AbstractPhysicalObject.AbstractObjectType.DataPearl, null, TargetPos.Room.GetWorldCoordinate(TargetPos.Pos), game.GetNewID(), -1, -1, null, type);
 
-                        SpawnRoom.abstractRoom.AddEntity(pearl);
-                        pearl.pos = SpawnRoom.GetWorldCoordinate(SpawnPos);
+                        TargetPos.Room.AddEntity(pearl);
+                        pearl.pos = TargetPos.Room.GetWorldCoordinate(TargetPos.Pos);
                         pearl.RealizeInRoom();
-                        pearl.realizedObject.firstChunk.HardSetPosition(SpawnPos);
+                        pearl.realizedObject.firstChunk.HardSetPosition(TargetPos.Pos);
 
                         WriteLine($"Spawned pearl: {type}");
                     }
@@ -1573,6 +1614,19 @@ namespace DevConsole
 
                 field.SetValue(obj, val);
             }
+        }
+
+        static string GetNestedCommand(string[] args, int startIndex)
+        {
+            var command = new StringBuilder();
+            for (int i = startIndex; i < args.Length; i++)
+            {
+                command.Append(args[i].EscapeCommandLine());
+
+                if (i < args.Length - 1)
+                    command.Append(" ");
+            }
+            return command.ToString();
         }
 
         // May be used to clean up outputs that contain a lot of repeated lines
