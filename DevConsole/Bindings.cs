@@ -16,7 +16,6 @@ namespace DevConsole
     {
         private static readonly List<BindingInfo> bindings = new();
         private static IDisposable runUpdateBindsHook;
-        private static bool updateBindsRecursionLock;
 
         /// <summary>
         /// Schedules a command to run every time an <see cref="IBindEvent"/> activates.
@@ -31,9 +30,9 @@ namespace DevConsole
 
             if (syncWithUpdate && runUpdateBindsHook == null)
             {
-                runUpdateBindsHook = new HookUtils.DeepHook(
-                    typeof(MainLoopProcess).GetMethod(nameof(MainLoopProcess.Update)),
-                    new Action<Action<object>, object>(MainLoopProcess_Update).Method
+                runUpdateBindsHook = new Hook(
+                    typeof(MainLoopProcess).GetMethod(nameof(MainLoopProcess.RawUpdate)),
+                    new On.MainLoopProcess.hook_RawUpdate(MainLoopProcess_RawUpdate).Method
                 );
             }
 
@@ -47,20 +46,15 @@ namespace DevConsole
             bindings[bindInd].commands.Add(command);
         }
 
-        private static void MainLoopProcess_Update(Action<object> orig, object self)
+        private static void MainLoopProcess_RawUpdate(On.MainLoopProcess.orig_RawUpdate orig, MainLoopProcess self, float dt)
         {
-            if (updateBindsRecursionLock)
+            if (self is MainLoopProcess mlp && mlp.processActive && mlp.manager.currentMainLoop == mlp)
             {
-                orig(self);
-                return;
+                if (self.myTimeStacker + dt * self.framesPerSecond > 1f)
+                    RunUpdate();
             }
 
-            if (self is MainLoopProcess mlp && mlp.processActive && mlp.manager.currentMainLoop == mlp)
-                RunUpdate();
-
-            updateBindsRecursionLock = true;
-            try { orig(self); }
-            finally { updateBindsRecursionLock = false; }
+            orig(self, dt);
         }
 
         /// <summary>

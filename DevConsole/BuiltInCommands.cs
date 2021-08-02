@@ -693,7 +693,7 @@ namespace DevConsole
                 {
                     try
                     {
-                        bool respawn = (args.Length > 0) ? bool.Parse(args[0]) : false;
+                        bool respawn = (args.Length > 0) && args[0] == "respawn";
 
                         foreach (var room in game.world.abstractRooms.Concat(new AbstractRoom[] { game.world.offScreenDen }))
                         {
@@ -715,9 +715,9 @@ namespace DevConsole
                         WriteLine("Failed to destroy everything in the region.");
                     }
                 })
-                .Help("remove_crits [respawn: true]")
+                .Help("remove_crits [respawn: no_respawn]")
                 .AutoComplete(new string[][] {
-                    new string[] { "true", "false" }
+                    new string[] { "respawn", "no_respawn" }
                 })
                 .Register();
 
@@ -725,7 +725,7 @@ namespace DevConsole
             new CommandBuilder("destroy")
                 .RunGame((game, args) =>
                 {
-                    bool respawn = (args.Length > 1) ? bool.Parse(args[1]) : false;
+                    bool respawn = (args.Length > 1) && args[1] == "respawn";
 
                     foreach (var obj in Selection.SelectAbstractObjects(game, args.Length > 0 ? args[0] : null))
                     {
@@ -734,7 +734,10 @@ namespace DevConsole
                             if (obj is AbstractCreature crit)
                             {
                                 if (respawn)
+                                {
+                                    crit.realizedCreature?.Die();
                                     crit.Die();
+                                }
                                 crit.realizedCreature?.LoseAllGrasps();
                             }
                             obj.realizedObject?.Destroy();
@@ -743,10 +746,10 @@ namespace DevConsole
                         catch { /* YOLO */ }
                     }
                 })
-                .Help("destroy [selector?] [respawn: true]")
+                .Help("destroy [selector?] [respawn: no_respawn]")
                 .AutoComplete(new string[][] {
                     null,
-                    new string[] { "true", "false" }
+                    new string[] { "respawn", "no_respawn" }
                 })
                 .Register();
 
