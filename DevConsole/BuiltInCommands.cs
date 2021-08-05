@@ -715,7 +715,7 @@ namespace DevConsole
                     catch(Exception e)
                     {
                         WriteLine("Failed to spawn creature! See console log for more info.");
-                        Debug.Log("Failed to spawn creature!\n" + e.ToString());
+                        Debug.Log("creature failed:" + e.ToString());
                     }
                 })
                 .Help("creature [type] [ID?]")
@@ -747,9 +747,10 @@ namespace DevConsole
                             }
                         }
                     }
-                    catch
+                    catch(Exception e)
                     {
-                        WriteLine("Failed to destroy everything in the region.");
+                        WriteLine("Failed to destroy everything in the region. See console log for more info.");
+                        Debug.Log("remove_crits failed: " + e);
                     }
                 })
                 .Help("remove_crits [respawn: no_respawn]")
@@ -1087,9 +1088,10 @@ namespace DevConsole
                             }
                         }
                     }
-                    catch
+                    catch(Exception e)
                     {
-                        WriteLine("Failed to set karma!");
+                        WriteLine("Failed to set karma! See console log for more info.");
+                        Debug.Log("karma failed: " + e);
                     }
                 })
                 .Help("karma [value?]")
@@ -1169,9 +1171,10 @@ namespace DevConsole
                                 WriteLine("Enabled invulnerability" + (args[0] == "death" ? " against death." : " against all harm."));
                             }
                         }
-                        catch
+                        catch(Exception e)
                         {
-                            WriteLine("Failed to toggle invulnerability!");
+                            WriteLine("Failed to toggle invulnerability! See console log for more info.");
+                            Debug.Log("invlun failed: " + e);
                         }
                     })
                     .Help("invuln [to]")
@@ -1425,7 +1428,7 @@ namespace DevConsole
                     catch (Exception e)
                     {
                         WriteLine("Failed to spawn object! See console log for more info.");
-                        Debug.Log("Failed to spawn object!\n" + e.ToString());
+                        Debug.Log("object failed: " + e.ToString());
                     }
                 })
                 .Help("object [type] [tag1?] [tag2?] ...")
