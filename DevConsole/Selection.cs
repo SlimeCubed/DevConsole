@@ -32,13 +32,19 @@ namespace DevConsole
 
             if (args == null || args.Length == 0)
             {
-                return FindBaseAbstractObjects(game, "me");
+                return FindBaseAbstractObjects(game, "me") ?? Enumerable.Empty<AbstractPhysicalObject>();
             }
             else
             {
                 // Find a base group to select from
                 // If only a filter is specified, filter from all
                 var objs = FindBaseAbstractObjects(game, args[0]);
+
+                if(objs == null)
+                {
+                    WriteLine($"Invalid selection base: {args[0]}");
+                    return Enumerable.Empty<AbstractPhysicalObject>();
+                }
 
                 // Filter based on the args that come after
                 for (int i = 1; i < args.Length; i++)

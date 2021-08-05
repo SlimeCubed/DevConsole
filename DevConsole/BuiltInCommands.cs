@@ -785,7 +785,7 @@ namespace DevConsole
                 })
                 .Help("destroy [selector?] [respawn: no_respawn]")
                 .AutoComplete(new string[][] {
-                    null,
+                    Selection.Autocomplete,
                     new string[] { "respawn", "no_respawn" }
                 })
                 .Register();
