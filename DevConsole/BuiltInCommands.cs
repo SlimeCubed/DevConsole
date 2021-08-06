@@ -311,139 +311,139 @@ namespace DevConsole
                     })
                     .HideHelp() // Too cursed for the general public
                     .Register();
+            }
 
-                // Change the console's font
-                new CommandBuilder("font")
+            // Change the console's font
+            new CommandBuilder("font")
+                .Run(args =>
+                {
+                    if (args.Length == 0)
+                    {
+                        WriteLine("Available fonts: " + string.Join(", ", Futile.atlasManager._fontsByName.Keys.ToArray()));
+                        WriteLine("Current font: " + CurrentFont);
+                    }
+                    else
+                    {
+                        try
+                        {
+                            CurrentFont = Futile.atlasManager._fontsByName.Keys.First(fontName => fontName.Equals(args[0], StringComparison.OrdinalIgnoreCase));
+                        }
+                        catch
+                        {
+                            WriteLine("Failed to set font!");
+                        }
+                    }
+
+                })
+                .Help("font [font_name?]")
+                .AutoComplete(args =>
+                {
+                    if (args.Length == 0) return Futile.atlasManager._fontsByName.Keys.ToArray();
+                    return null;
+                })
+                .Register();
+
+            // Call a static method
+            {
+                Type SearchNestedTypes(Func<string, Type> getType, string[] typeParts, int startInd)
+                {
+                    for(int end = startInd + 1; end <= typeParts.Length; end++)
+                    {
+                        Type t = getType(typeParts.Skip(startInd).Take(end - startInd).Aggregate((acc, str) => $"{acc}.{str}"));
+                        if (t == null) continue;
+                        if(end == typeParts.Length)
+                        {
+                            return t;
+                        }
+                        else
+                        {
+                            t = SearchNestedTypes(typeName => t.GetNestedType(typeName, BindingFlags.Public | BindingFlags.NonPublic), typeParts, end);
+                            if (t != null) return t;
+                        }
+                    }
+                    return null;
+                }
+
+                new CommandBuilder("invoke")
                     .Run(args =>
                     {
                         if (args.Length == 0)
                         {
-                            WriteLine("Available fonts: " + string.Join(", ", Futile.atlasManager._fontsByName.Keys.ToArray()));
-                            WriteLine("Current font: " + CurrentFont);
-                        }
-                        else
-                        {
-                            try
-                            {
-                                CurrentFont = Futile.atlasManager._fontsByName.Keys.First(fontName => fontName.Equals(args[0], StringComparison.OrdinalIgnoreCase));
-                            }
-                            catch
-                            {
-                                WriteLine("Failed to set font!");
-                            }
+                            WriteLine("No method specified!");
+                            return;
                         }
 
+                        // Get the type and method names
+                        string[] typeParts = args[0].Split('.');
+                        if(typeParts.Length < 2)
+                        {
+                            WriteLine("A type and method must be specified!");
+                            return;
+                        }
+
+                        string methodName = typeParts[typeParts.Length - 1];
+                        Array.Resize(ref typeParts, typeParts.Length - 1);
+
+                        // Find the type
+                        Type t = null;
+                        foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+                        {
+                            t = SearchNestedTypes(typeName => asm.GetType(typeName, false, true), typeParts, 0);
+                            if(t != null)
+                                break;
+                        }
+
+                        if(t == null)
+                        {
+                            WriteLine($"Could not find type: {string.Join(".", typeParts)}");
+                            return;
+                        }
+
+                        // Find the method
+                        foreach (var m in t.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static))
+                        {
+                            if (!m.Name.Equals(methodName, StringComparison.OrdinalIgnoreCase)) continue;
+                            if (m.ContainsGenericParameters) continue;
+
+                            var p = m.GetParameters();
+                            if (p.Length != args.Length - 1) continue;
+
+                            // Try converting all arguments
+                            object[] realArgs = new object[p.Length];
+                            for (int i = 0; i < realArgs.Length; i++)
+                            {
+                                try
+                                {
+                                    Type paramType = p[i].ParameterType;
+                                    string arg = args[i + 1];
+                                    if ((arg is "null" or "default") && !paramType.IsValueType)
+                                        realArgs[i] = null;
+                                    else if (arg is "default")
+                                        realArgs[i] = Activator.CreateInstance(paramType);
+                                    else
+                                        realArgs[i] = System.ComponentModel.TypeDescriptor.GetConverter(paramType).ConvertFromInvariantString(arg);
+                                }
+                                catch
+                                {
+                                    goto continueOuter;
+                                }
+                            }
+
+                            // All args are set
+                            // Execute
+                            object res = m.Invoke(null, realArgs);
+                            if (res != null)
+                            {
+                                WriteLine(res.ToString());
+                            }
+                            return;
+                        continueOuter:;
+                        }
+
+                        WriteLine($"Could not find the specified method overload: {methodName}");
                     })
-                    .Help("font [font_name?]")
-                    .AutoComplete(args =>
-                    {
-                        if (args.Length == 0) return Futile.atlasManager._fontsByName.Keys.ToArray();
-                        return null;
-                    })
+                    .Help("invoke [method] [arg1?] [arg2?] ...")
                     .Register();
-
-                // Call a static method
-                {
-                    Type SearchNestedTypes(Func<string, Type> getType, string[] typeParts, int startInd)
-                    {
-                        for(int end = startInd + 1; end <= typeParts.Length; end++)
-                        {
-                            Type t = getType(typeParts.Skip(startInd).Take(end - startInd).Aggregate((acc, str) => $"{acc}.{str}"));
-                            if (t == null) continue;
-                            if(end == typeParts.Length)
-                            {
-                                return t;
-                            }
-                            else
-                            {
-                                t = SearchNestedTypes(typeName => t.GetNestedType(typeName, BindingFlags.Public | BindingFlags.NonPublic), typeParts, end);
-                                if (t != null) return t;
-                            }
-                        }
-                        return null;
-                    }
-
-                    new CommandBuilder("invoke")
-                        .Run(args =>
-                        {
-                            if (args.Length == 0)
-                            {
-                                WriteLine("No method specified!");
-                                return;
-                            }
-
-                            // Get the type and method names
-                            string[] typeParts = args[0].Split('.');
-                            if(typeParts.Length < 2)
-                            {
-                                WriteLine("A type and method must be specified!");
-                                return;
-                            }
-
-                            string methodName = typeParts[typeParts.Length - 1];
-                            Array.Resize(ref typeParts, typeParts.Length - 1);
-
-                            // Find the type
-                            Type t = null;
-                            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
-                            {
-                                t = SearchNestedTypes(typeName => asm.GetType(typeName, false, true), typeParts, 0);
-                                if(t != null)
-                                    break;
-                            }
-
-                            if(t == null)
-                            {
-                                WriteLine($"Could not find type: {string.Join(".", typeParts)}");
-                                return;
-                            }
-
-                            // Find the method
-                            foreach (var m in t.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static))
-                            {
-                                if (!m.Name.Equals(methodName, StringComparison.OrdinalIgnoreCase)) continue;
-                                if (m.ContainsGenericParameters) continue;
-
-                                var p = m.GetParameters();
-                                if (p.Length != args.Length - 1) continue;
-
-                                // Try converting all arguments
-                                object[] realArgs = new object[p.Length];
-                                for (int i = 0; i < realArgs.Length; i++)
-                                {
-                                    try
-                                    {
-                                        Type paramType = p[i].ParameterType;
-                                        string arg = args[i + 1];
-                                        if ((arg is "null" or "default") && !paramType.IsValueType)
-                                            realArgs[i] = null;
-                                        else if (arg is "default")
-                                            realArgs[i] = Activator.CreateInstance(paramType);
-                                        else
-                                            realArgs[i] = System.ComponentModel.TypeDescriptor.GetConverter(paramType).ConvertFromInvariantString(arg);
-                                    }
-                                    catch
-                                    {
-                                        goto continueOuter;
-                                    }
-                                }
-
-                                // All args are set
-                                // Execute
-                                object res = m.Invoke(null, realArgs);
-                                if (res != null)
-                                {
-                                    WriteLine(res.ToString());
-                                }
-                                return;
-                            continueOuter:;
-                            }
-
-                            WriteLine($"Could not find the specified method overload: {methodName}");
-                        })
-                        .Help("invoke [method] [arg1?] [arg2?] ...")
-                        .Register();
-                }
             }
 
             // Control positioning of commands
@@ -687,17 +687,50 @@ namespace DevConsole
                 {
                     try
                     {
+                        if(args.Length < 1)
+                        {
+                            WriteLine("No creature type specified!");
+                            return;
+                        }
                         // Find the creature to spawn, first by exact name then by creature type enum
-                        CreatureTemplate template = StaticWorld.creatureTemplates.FirstOrDefault(t => t.name.Equals(args[0], StringComparison.OrdinalIgnoreCase));
-                        if (template == null) template = StaticWorld.GetCreatureTemplate((CreatureTemplate.Type)Enum.Parse(typeof(CreatureTemplate.Type), args[0], true));
+                        CreatureTemplate template;
+                        try
+                        {
+                            template = StaticWorld.creatureTemplates.FirstOrDefault(t => t.name.Equals(args[0], StringComparison.OrdinalIgnoreCase));
+                            if (template == null) template = StaticWorld.GetCreatureTemplate((CreatureTemplate.Type)Enum.Parse(typeof(CreatureTemplate.Type), args[0], true));
+                        }
+                        catch
+                        {
+                            Debug.Log("Unknown creature type!");
+                            return;
+                        }
 
+                        // Parse ID or ID number
                         EntityID? id = null;
                         if(args.Length > 1)
                         {
                             if (args[1].Contains('.'))
-                                id = EntityID.FromString(args[1]);
+                            {
+                                try
+                                {
+                                    id = EntityID.FromString(args[1]);
+                                }
+                                catch
+                                {
+                                    WriteLine("Failed to parse entity ID! It should be formatted like: ID.123.456");
+                                    return;
+                                }
+                            }
                             else
-                                id = new EntityID(0, int.Parse(args[1]));
+                            {
+                                if (int.TryParse(args[1], out int idNum))
+                                    id = new EntityID(0, idNum);
+                                else
+                                {
+                                    WriteLine("Failed to parse entity ID number! It should be formatted like: 123");
+                                    return;
+                                }
+                            }
                         }
 
                         var crit = new AbstractCreature(
