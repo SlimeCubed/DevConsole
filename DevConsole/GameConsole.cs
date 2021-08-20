@@ -603,7 +603,7 @@ namespace DevConsole
             if (shouldPause && blockUpdateHook == null)
             {
                 blockUpdateHook = new Hook(
-                    typeof(RainWorld).GetMethod(nameof(RainWorld.Update)),
+                    typeof(RainWorld).GetMethod(nameof(RainWorld.Update), BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance),
                     (On.RainWorld.hook_Update)BlockUpdate
                 );
             }
