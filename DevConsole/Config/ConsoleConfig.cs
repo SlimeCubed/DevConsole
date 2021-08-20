@@ -39,7 +39,7 @@ namespace DevConsole
                         verticalAlignment = OpLabel.LabelVAlignment.Center,
                         description = desc
                     },
-                    new OpCheckBox(listPos + new Vector2(2f, 0f), "devconsole.autopause", false)
+                    new OpCheckBox(listPos + new Vector2(2f, 0f), "devconsole.autopause", true)
                     {
                         description = desc
                     }
