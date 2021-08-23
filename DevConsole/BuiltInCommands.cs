@@ -12,6 +12,7 @@ namespace DevConsole
     using BindEvents;
     using static GameConsole;
     using System.Collections;
+    using Random = UnityEngine.Random;
 
     // Contains all commands that come with the dev console
     internal static class BuiltInCommands
@@ -1450,13 +1451,19 @@ namespace DevConsole
                             case AbstractPhysicalObject.AbstractObjectType.BubbleGrass: apo = new BubbleGrass.AbstractBubbleGrass(game.world, null, pos, id, 1f, -1, -1, null); break;
                             case AbstractPhysicalObject.AbstractObjectType.SporePlant: apo = new SporePlant.AbstractSporePlant(game.world, null, pos, id, -1, -1, null, false, true); break;
                             case AbstractPhysicalObject.AbstractObjectType.WaterNut: apo = new WaterNut.AbstractWaterNut(game.world, null, pos, id, -1, -1, null, args.Skip(1).Contains("swollen")); break;
-                            case AbstractPhysicalObject.AbstractObjectType.DataPearl: break;
+                            case AbstractPhysicalObject.AbstractObjectType.DataPearl:
+                            case AbstractPhysicalObject.AbstractObjectType.PebblesPearl:
+                                WriteLine("Could not spawn pearl! Use the pearl command instead.");
+                                break;
                             default:
                                 if (AbstractConsumable.IsTypeConsumable(type)) apo = new AbstractConsumable(game.world, type, null, pos, id, -1, -1, null);
                                 else apo = new AbstractPhysicalObject(game.world, type, null, pos, id); break;
                         }
-                        TargetPos.Room.AddEntity(apo);
-                        apo.RealizeInRoom();
+                        if (apo != null)
+                        {
+                            TargetPos.Room.AddEntity(apo);
+                            apo.RealizeInRoom();
+                        }
                     }
                     catch (Exception e)
                     {
@@ -1485,7 +1492,12 @@ namespace DevConsole
                         }
 
                         var type = (DataPearl.AbstractDataPearl.DataPearlType)Enum.Parse(typeof(DataPearl.AbstractDataPearl.DataPearlType), args[0], true);
-                        var pearl = new DataPearl.AbstractDataPearl(game.world, AbstractPhysicalObject.AbstractObjectType.DataPearl, null, TargetPos.Room.GetWorldCoordinate(TargetPos.Pos), game.GetNewID(), -1, -1, null, type);
+
+                        AbstractPhysicalObject pearl;
+                        if (type == DataPearl.AbstractDataPearl.DataPearlType.PebblesPearl)
+                            pearl = new PebblesPearl.AbstractPebblesPearl(game.world, null, TargetPos.Room.GetWorldCoordinate(TargetPos.Pos), game.GetNewID(), -1, -1, null, Random.Range(0, 3), Random.Range(0, 10000));
+                        else
+                            pearl = new DataPearl.AbstractDataPearl(game.world, AbstractPhysicalObject.AbstractObjectType.DataPearl, null, TargetPos.Room.GetWorldCoordinate(TargetPos.Pos), game.GetNewID(), -1, -1, null, type);
 
                         TargetPos.Room.AddEntity(pearl);
                         pearl.pos = TargetPos.Room.GetWorldCoordinate(TargetPos.Pos);
@@ -1494,9 +1506,10 @@ namespace DevConsole
 
                         WriteLine($"Spawned pearl: {type}");
                     }
-                    catch
+                    catch(Exception e)
                     {
-                        WriteLine("Could not spawn pearl!");
+                        WriteLine("Could not spawn pearl! See console log for more information.");
+                        Debug.Log("Failed to spawn pearl! " + e.ToString());
                     }
                 })
                 .Help("pearl [pearl_type?]")
@@ -1604,12 +1617,12 @@ namespace DevConsole
             foreach (var field in obj.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
             {
                 if (fragileFields.Contains(field.Name)) continue;
-                if (UnityEngine.Random.value >= chance) continue;
+                if (Random.value >= chance) continue;
 
                 object val = field.GetValue(obj);
                 if (val == null) continue;
 
-                float rand = UnityEngine.Random.value * 2f - 1f;
+                float rand = Random.value * 2f - 1f;
                 switch (Type.GetTypeCode(field.FieldType))
                 {
                     // Bool
@@ -1633,8 +1646,8 @@ namespace DevConsole
                         char[] chars = ((string)val).ToCharArray();
                         for (int i = 0; i < chars.Length; i++)
                         {
-                            if (UnityEngine.Random.value < strength)
-                                chars[i] = (char)UnityEngine.Random.Range(0x0000, 0x10000);
+                            if (Random.value < strength)
+                                chars[i] = (char)Random.Range(0x0000, 0x10000);
                         }
                         val = new string(chars);
                         break;
