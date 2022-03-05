@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using HelpHandler = System.Func<string>;
 using RunHandler = System.Action<string[]>;
 using RunGameHandler = System.Action<RainWorldGame, string[]>;

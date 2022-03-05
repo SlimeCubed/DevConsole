@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using HelpHandler = System.Func<string>;
+﻿using HelpHandler = System.Func<string>;
 using RunCommandHandler = System.Func<string[], string, bool>;
 
 namespace DevConsole.Commands

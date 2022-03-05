@@ -6,8 +6,6 @@ using UnityEngine;
 
 namespace DevConsole
 {
-    using Commands;
-
     // Allows for autocomplete in the console
     internal class Autocomplete
     {

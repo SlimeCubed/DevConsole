@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Reflection;
 using System.Reflection.Emit;
-using CompletelyOptional;
 using OptionalUI;
 using Partiality.Modloader;
 

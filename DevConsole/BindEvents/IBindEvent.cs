@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
-namespace DevConsole.BindEvents
+﻿namespace DevConsole.BindEvents
 {
     /// <summary>
     /// Polls an event to determine whether a bind will activate this frame.
