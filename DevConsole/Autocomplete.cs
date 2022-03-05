@@ -12,6 +12,7 @@ namespace DevConsole
         private readonly FSprite back;
         private readonly List<FLabel> labels = new List<FLabel>();
         private List<string> options;
+        private int currentArgLength = 0;
 
         public FContainer Container { get; }
         public Color TextColor => Color.gray;
@@ -32,7 +33,7 @@ namespace DevConsole
 
         public void UpdateText(string newText)
         {
-            options = CompletionOptions(newText);
+            options = CompletionOptions(newText, out currentArgLength);
 
             Container.isVisible = options != null && options.Count > 0;
 
@@ -63,7 +64,7 @@ namespace DevConsole
 
                 // Create the label
                 var option = options[i];
-                var label = new FLabel(GameConsole.CurrentFont, option);
+                var label = new FLabel(GameConsole.CurrentFont, option.Substring(currentArgLength));
                 label.anchorX = 0f;
                 label.anchorY = 0f;
                 label.x = 0f;
@@ -87,10 +88,15 @@ namespace DevConsole
             back.scaleY = backRect.height;
         }
 
-        private List<string> CompletionOptions(string input)
+        private List<string> CompletionOptions(string input, out int currentArgLength)
         {
+
             // Don't suggest anything if there's no text
-            if (input.All(char.IsWhiteSpace)) return new List<string>();
+            if (input.All(char.IsWhiteSpace))
+            {
+                currentArgLength = 0;
+                return new List<string>();
+            }
 
             var finalArgs = input.SplitCommandLine().ToList();
             string writingArg;
@@ -129,7 +135,6 @@ namespace DevConsole
                     options.AddRange(acOptions
                         .Select(str => str.EscapeCommandLine())
                         .Where(str => str.StartsWith(writingArg, StringComparison.OrdinalIgnoreCase))
-                        .Select(str => str.Substring(writingArg.Length))
                         .Where(str => !string.IsNullOrEmpty(str))
                     );
                 }
@@ -138,6 +143,7 @@ namespace DevConsole
             // Remove duplicates, seek to the last selected option
             options.Sort();
             DedupSorted(options);
+            currentArgLength = writingArg.Length;
             return options;
         }
 
@@ -178,7 +184,11 @@ namespace DevConsole
                 // Autocomplete when tab is pressed
                 string acOption = CurrentOption;
                 if (acOption != null && acOption.Length != 0)
+                {
+                    // Delete current argument to correct capitalization
+                    inputString.Remove(inputString.Length - currentArgLength, currentArgLength);
                     inputString.Append(acOption);
+                }
                 UpdateText(inputString.ToString());
             }
             else if (Input.GetKeyDown(KeyCode.UpArrow) && allowScroll)
