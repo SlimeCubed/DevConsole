@@ -38,6 +38,10 @@
       <HintPath>..\..\rwmodlibspublic\Assembly-CSharp.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="BepInEx">
+      <HintPath>..\..\rwmodlibspublic\BepInEx.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="ConfigMachine">
       <HintPath>..\..\rwmodlibspublic\ConfigMachine.dll</HintPath>
       <Private>False</Private>
@@ -74,6 +78,7 @@
     <Compile Include="BindEvents\KeyMode.cs" />
     <Compile Include="BindEvents\KeyNameEvent.cs" />
     <Compile Include="Bindings.cs" />
+    <Compile Include="BuiltInCommands.BepInEx.cs" />
     <Compile Include="BuiltInCommands.cs" />
     <Compile Include="Commands\CommandBuilder.cs" />
     <Compile Include="Commands\ComplexCommand.cs" />

@@ -15,7 +15,7 @@ namespace DevConsole
     using Random = UnityEngine.Random;
 
     // Contains all commands that come with the dev console
-    internal static class BuiltInCommands
+    internal static partial class BuiltInCommands
     {
         // Colors associated with each Unity log type
         private static readonly Dictionary<LogType, Color> logColors = new Dictionary<LogType, Color>()
@@ -40,6 +40,8 @@ namespace DevConsole
 
         public static void RegisterCommands()
         {
+            TryRegisterBepInExCommands();
+            
             // Commands that don't fit any other category
             #region Misc
 
@@ -530,7 +532,7 @@ namespace DevConsole
                 })
                 .Help("group [command1] [command2?] ...")
                 .Register();
-
+            
             #endregion Misc
 
 
