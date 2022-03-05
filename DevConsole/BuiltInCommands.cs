@@ -43,6 +43,22 @@ namespace DevConsole
             // Commands that don't fit any other category
             #region Misc
 
+            // Quits to the main menu
+            new CommandBuilder("exit")
+                .Run(args =>
+                {
+                    var rw = UnityEngine.Object.FindObjectOfType<RainWorld>();
+                    if (args.Length > 0 && args[0].Equals("force", StringComparison.OrdinalIgnoreCase) || rw.processManager.upcomingProcess == ProcessManager.ProcessID.MainMenu)
+                        rw.processManager.SwitchMainProcess(ProcessManager.ProcessID.MainMenu);
+                    else
+                        rw.processManager.RequestMainProcessSwitch(ProcessManager.ProcessID.MainMenu);
+                })
+                .AutoComplete(new string[][] {
+                    new string[] { "request", "force" }
+                })
+                .Help("exit [mode: request]")
+                .Register();
+
             // Mirrors all Debug.Log* calls to the dev console
             new CommandBuilder("show_debug")
                 .Run(args =>
