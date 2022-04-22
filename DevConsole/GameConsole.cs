@@ -172,7 +172,7 @@ namespace DevConsole
 
             Futile.stage.RemoveChild(instance.container);
 
-            Destroy(instance);
+            Destroy(instance.gameObject);
 
             instance = null;
         }
