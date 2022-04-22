@@ -419,9 +419,17 @@ namespace DevConsole
             }
         }
 
+        public static void Undo() => QuitWatcher.Undo();
+
         private class QuitWatcher : MonoBehaviour
         {
             private static QuitWatcher instance;
+
+            public static void Undo()
+            {
+                Destroy(instance.gameObject);
+                instance = null;
+            }
 
             public static event Action OnQuit
             {
@@ -439,8 +447,7 @@ namespace DevConsole
                     OnQuitInternal -= value;
                     if(OnQuitInternal == null)
                     {
-                        Destroy(instance.gameObject);
-                        instance = null;
+                        Undo();
                     }
                 }
             }

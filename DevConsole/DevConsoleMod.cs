@@ -29,5 +29,10 @@ namespace DevConsole
         {
             GameConsole.Apply(this);
         }
+
+        public override void OnDisable()
+        {
+            GameConsole.Undo();
+        }
     }
 }
