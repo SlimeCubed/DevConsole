@@ -427,8 +427,11 @@ namespace DevConsole
 
             public static void Undo()
             {
-                Destroy(instance.gameObject);
-                instance = null;
+                // Unity overloads the `!= null` check, so use `is not null`
+                if (instance is not null) {
+                    Destroy(instance.gameObject);
+                    instance = null;
+                }
             }
 
             public static event Action OnQuit
