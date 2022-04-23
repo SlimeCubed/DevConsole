@@ -79,19 +79,20 @@ namespace DevConsole
                             catch { return null; }
                         })
                         .Where(help => help != null)
-                        .Skip(maxLines * page)
-                        .Take(maxLines)
+                        .Skip((maxLines - 1) * page)
+                        .Take(maxLines - 1)
                         .ToArray();
 
                     Array.Sort(helps);
                     if (helps.Length > 0)
                     {
+                        WriteLine($"Showing help for page {page}. Run \"wiki\" for more detailed descriptions.", new Color(0.5f, 1f, 0.75f));
                         foreach (var help in helps)
                             WriteLine(help);
                     }
                     else
                     {
-                        WriteLine("That page is empty!");
+                        WriteLine($"Page {page} empty!", new Color(0.5f, 1f, 0.75f));
                     }
                 })
                 .Help("help [page: 1]")

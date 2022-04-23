@@ -61,41 +61,6 @@ namespace DevConsole
                 .Help("exit [mode: request]")
                 .Register();
 
-            // Mirrors all Debug.Log* calls to the dev console
-            new CommandBuilder("show_debug")
-                .Run(args =>
-                {
-                    var cb = (Application.LogCallback)Application_s_LogCallback.GetValue(null);
-                    if (showingDebug) cb -= WriteLogToConsole;
-                    else cb += WriteLogToConsole;
-                    showingDebug = !showingDebug;
-                    Application.RegisterLogCallback(cb);
-                    WriteLine(showingDebug ? "Debug messages will be displayed here." : "Debug messages will no longer be displayed here.");
-
-                    if (args.Length > 0 && bool.TryParse(args[0], out bool argBool) && argBool)
-                    {
-                        WriteLine("The game will pause when errors occur.");
-                        pauseOnError = true;
-                    }
-                    else
-                        pauseOnError = false;
-                })
-                .Help("show_debug [pause_on_error: false]")
-                .AutoComplete(new string[][]
-                {
-                    new string[] { "true", "false" }
-                })
-                .Register();
-
-            // Clears the console
-            new CommandBuilder("clear")
-                .Run(args =>
-                {
-                    Clear();
-                    WriteHeader();
-                })
-                .Register();
-
             // Throws an exception
             // Useful, right?
             new CommandBuilder("throw")
@@ -105,28 +70,6 @@ namespace DevConsole
                     throw new Exception();
                 })
                 .Help("throw [message?]")
-                .Register();
-
-            // Writes a list of lines to the console
-            new CommandBuilder("echo")
-                .Run(args =>
-                {
-                    foreach (var line in args)
-                        WriteLine(line);
-                })
-                .Help("echo [line1?] [line2?] ...")
-                .Register();
-
-            // Runs a command and suppresses all output for its duration
-            new CommandBuilder("silence")
-                .Run(args =>
-                {
-                    if (args.Length == 0)
-                        WriteLine("No command given to silence!");
-                    else
-                        RunCommandSilent(GetNestedCommand(args, 0));
-                })
-                .Help("silence [command]+")
                 .Register();
 
             // Speeds up the game
@@ -331,36 +274,6 @@ namespace DevConsole
                     .HideHelp() // Too cursed for the general public
                     .Register();
             }
-
-            // Change the console's font
-            new CommandBuilder("font")
-                .Run(args =>
-                {
-                    if (args.Length == 0)
-                    {
-                        WriteLine("Available fonts: " + string.Join(", ", Futile.atlasManager._fontsByName.Keys.ToArray()));
-                        WriteLine("Current font: " + CurrentFont);
-                    }
-                    else
-                    {
-                        try
-                        {
-                            CurrentFont = Futile.atlasManager._fontsByName.Keys.First(fontName => fontName.Equals(args[0], StringComparison.OrdinalIgnoreCase));
-                        }
-                        catch
-                        {
-                            WriteLine("Failed to set font!");
-                        }
-                    }
-
-                })
-                .Help("font [font_name?]")
-                .AutoComplete(args =>
-                {
-                    if (args.Length == 0) return Futile.atlasManager._fontsByName.Keys.ToArray();
-                    return null;
-                })
-                .Register();
 
             // Call a static method
             {
@@ -1567,6 +1480,107 @@ namespace DevConsole
                 .Register();
 
             #endregion Objects
+
+            // Commands related to the console
+            #region Meta
+
+            // Mirrors all Debug.Log* calls to the dev console
+            new CommandBuilder("show_debug")
+                .Run(args =>
+                {
+                    var cb = (Application.LogCallback)Application_s_LogCallback.GetValue(null);
+                    if (showingDebug) cb -= WriteLogToConsole;
+                    else cb += WriteLogToConsole;
+                    showingDebug = !showingDebug;
+                    Application.RegisterLogCallback(cb);
+                    WriteLine(showingDebug ? "Debug messages will be displayed here." : "Debug messages will no longer be displayed here.");
+
+                    if (args.Length > 0 && bool.TryParse(args[0], out bool argBool) && argBool)
+                    {
+                        WriteLine("The game will pause when errors occur.");
+                        pauseOnError = true;
+                    }
+                    else
+                        pauseOnError = false;
+                })
+                .Help("show_debug [pause_on_error: false]")
+                .AutoComplete(new string[][]
+                {
+                    new string[] { "true", "false" }
+                })
+                .Register();
+
+            // Clears the console
+            new CommandBuilder("clear")
+                .Run(args =>
+                {
+                    Clear();
+                    WriteHeader();
+                })
+                .Register();
+
+            // Writes a list of lines to the console
+            new CommandBuilder("echo")
+                .Run(args =>
+                {
+                    foreach (var line in args)
+                        WriteLine(line);
+                })
+                .Help("echo [line1?] [line2?] ...")
+                .Register();
+
+            // Runs a command and suppresses all output for its duration
+            new CommandBuilder("silence")
+                .Run(args =>
+                {
+                    if (args.Length == 0)
+                        WriteLine("No command given to silence!");
+                    else
+                        RunCommandSilent(GetNestedCommand(args, 0));
+                })
+                .Help("silence [command]+")
+                .Register();
+
+            // Change the console's font
+            new CommandBuilder("font")
+                .Run(args =>
+                {
+                    if (args.Length == 0)
+                    {
+                        WriteLine("Available fonts: " + string.Join(", ", Futile.atlasManager._fontsByName.Keys.ToArray()));
+                        WriteLine("Current font: " + CurrentFont);
+                    }
+                    else
+                    {
+                        try
+                        {
+                            CurrentFont = Futile.atlasManager._fontsByName.Keys.First(fontName => fontName.Equals(args[0], StringComparison.OrdinalIgnoreCase));
+                        }
+                        catch
+                        {
+                            WriteLine("Failed to set font!");
+                        }
+                    }
+
+                })
+                .Help("font [font_name?]")
+                .AutoComplete(args =>
+                {
+                    if (args.Length == 0) return Futile.atlasManager._fontsByName.Keys.ToArray();
+                    return null;
+                })
+                .Register();
+
+            // Open the wiki page
+            new CommandBuilder("wiki")
+                .Run(args =>
+                {
+                    Application.OpenURL("https://github.com/SlimeCubed/DevConsole/wiki");
+                })
+                .Help("wiki")
+                .Register();
+
+            #endregion Meta
         }
 
         private static string[] keyNames;
