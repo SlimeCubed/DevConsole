@@ -104,9 +104,6 @@
   <ItemGroup>
     <EmbeddedResource Include="Fonts\devconsolas.png" />
   </ItemGroup>
-  <ItemGroup>
-    <None Include="user.targets" />
-  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Condition="Exists('user.targets')" Project="user.targets" />
   <PropertyGroup>

@@ -166,6 +166,17 @@ namespace DevConsole
             instance.mod = mod;
         }
 
+        internal static void Undo()
+        {
+            BF.Undo();
+
+            Futile.stage.RemoveChild(instance.container);
+
+            Destroy(instance.gameObject);
+
+            instance = null;
+        }
+
         /// <summary>
         /// Writes one or more lines of white text to the console.
         /// </summary>
