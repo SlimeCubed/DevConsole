@@ -13,6 +13,7 @@ namespace DevConsole
     using static GameConsole;
     using System.Collections;
     using Random = UnityEngine.Random;
+    using RWCustom;
 
     // Contains all commands that come with the dev console
     internal static partial class BuiltInCommands
@@ -1370,41 +1371,153 @@ namespace DevConsole
             new CommandBuilder("object")
                 .RunGame((game, args) =>
                 {
+                    // Inspect object
+                    if (args.Length == 1 && "inspect".Equals(args[0], StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        var pos = TargetPos;
+                        if (pos.Room?.realizedRoom == null)
+                        {
+                            WriteLine("Target must be in a realized room!");
+                        }
+                        else
+                        {
+                            float minDist = float.PositiveInfinity;
+                            PhysicalObject target = null;
+                            foreach (var obj in pos.Room.realizedRoom.physicalObjects.SelectMany(o => o))
+                            {
+                                if (obj?.firstChunk == null) continue;
+                                if (obj.abstractPhysicalObject is AbstractCreature) continue;
+
+                                float dist = Vector2.Distance(obj.firstChunk.pos, pos.Pos);
+                                if (dist < minDist)
+                                {
+                                    minDist = dist;
+                                    target = obj;
+                                }
+                            }
+
+                            if (target == null)
+                            {
+                                WriteLine("Could not find an object to inspect!");
+                            }
+                            else
+                            {
+                                string savedObject;
+                                try
+                                {
+                                    savedObject = target.abstractPhysicalObject.ToString();
+                                    var res = new StringBuilder("object ");
+                                    res.Append(target.abstractPhysicalObject.type.ToString().EscapeCommandLine());
+                                    foreach (var part in savedObject.Split(new string[] { "<oA>" }, StringSplitOptions.None).Skip(3))
+                                    {
+                                        res.Append(" ");
+                                        res.Append(part.EscapeCommandLine());
+                                    }
+                                    WriteLine(res.ToString());
+                                }
+                                catch (Exception e)
+                                {
+                                    WriteLine("Failed to inspect object! See console log for more info.");
+                                    Debug.Log("object inspect failed: " + e.ToString());
+                                }
+                            }
+                        }
+                        return;
+                    }
+
+                    AbstractPhysicalObject.AbstractObjectType type;
+                    try
+                    {
+                        type = (AbstractPhysicalObject.AbstractObjectType)Enum.Parse(typeof(AbstractPhysicalObject.AbstractObjectType), args[0], true);
+                    }
+                    catch
+                    {
+                        WriteLine("Invalid object type!");
+                        return;
+                    }
+
+                    // Spawn object
+                    AbstractPhysicalObject apo = null;
                     try
                     {
                         var pos = TargetPos.Room.GetWorldCoordinate(TargetPos.Pos);
                         var id = game.GetNewID();
-                        var type = (AbstractPhysicalObject.AbstractObjectType)Enum.Parse(typeof(AbstractPhysicalObject.AbstractObjectType), args[0], true);
-                        AbstractPhysicalObject apo = null;
+                        var tags = args.Skip(1);
+
                         switch (type)
                         {
-                            case AbstractPhysicalObject.AbstractObjectType.Spear: apo = new AbstractSpear(game.world, null, pos, id, args.Skip(1).Contains("explosive")); break;
+                            // Spawn special vanilla objects
+                            case AbstractPhysicalObject.AbstractObjectType.Spear: apo = new AbstractSpear(game.world, null, pos, id, tags.Contains("explosive")); break;
                             case AbstractPhysicalObject.AbstractObjectType.BubbleGrass: apo = new BubbleGrass.AbstractBubbleGrass(game.world, null, pos, id, 1f, -1, -1, null); break;
                             case AbstractPhysicalObject.AbstractObjectType.SporePlant: apo = new SporePlant.AbstractSporePlant(game.world, null, pos, id, -1, -1, null, false, true); break;
-                            case AbstractPhysicalObject.AbstractObjectType.WaterNut: apo = new WaterNut.AbstractWaterNut(game.world, null, pos, id, -1, -1, null, args.Skip(1).Contains("swollen")); break;
+                            case AbstractPhysicalObject.AbstractObjectType.WaterNut: apo = new WaterNut.AbstractWaterNut(game.world, null, pos, id, -1, -1, null, tags.Contains("swollen")); break;
+                            case AbstractPhysicalObject.AbstractObjectType.EggBugEgg: apo = new EggBugEgg.AbstractBugEgg(game.world, null, pos, id, Mathf.Lerp(-0.15f, 0.1f, Custom.ClampedRandomVariation(0.5f, 0.5f, 2f))); break;
+                            case AbstractPhysicalObject.AbstractObjectType.VultureMask: apo = new VultureMask.AbstractVultureMask(game.world, null, pos, id, id.RandomSeed, tags.Contains("king")); break;
+                            case AbstractPhysicalObject.AbstractObjectType.SeedCob: apo = new SeedCob.AbstractSeedCob(game.world, null, pos, id, -1, -1, false, null); break;
+                            case AbstractPhysicalObject.AbstractObjectType.OverseerCarcass:
+                                {
+                                    int owner = Random.Range(0, 4);
+                                    var col = owner switch
+                                    {
+                                        0 => new Color(0.447058827f, 0.9019608f, 0.768627465f),
+                                        2 => new Color(0f, 1f, 0f),
+                                        3 => new Color(1f, 0.8f, 0.3f),
+                                        _ => new Color(0.447058827f, 0.9019608f, 0.768627465f),
+                                    };
+                                    apo = new OverseerCarcass.AbstractOverseerCarcass(game.world, null, pos, id, col, owner);
+                                }
+                                break;
                             case AbstractPhysicalObject.AbstractObjectType.DataPearl:
                             case AbstractPhysicalObject.AbstractObjectType.PebblesPearl:
                                 WriteLine("Could not spawn pearl! Use the pearl command instead.");
                                 break;
+                            case AbstractPhysicalObject.AbstractObjectType.Creature:
+                                WriteLine("Could not spawn creature! Use the creature command instead.");
+                                break;
                             default:
-                                if (AbstractConsumable.IsTypeConsumable(type)) apo = new AbstractConsumable(game.world, type, null, pos, id, -1, -1, null);
-                                else apo = new AbstractPhysicalObject(game.world, type, null, pos, id); break;
+                                if (type <= AbstractPhysicalObject.AbstractObjectType.OverseerCarcass)
+                                {
+                                    // Spawn standard vanilla object
+                                    if (AbstractConsumable.IsTypeConsumable(type)) apo = new AbstractConsumable(game.world, type, null, pos, id, -1, -1, null);
+                                    else apo = new AbstractPhysicalObject(game.world, type, null, pos, id);
+                                }
+                                else
+                                {
+                                    // Spawn modded object, proceed with caution
+                                    // Most mods use custom AbstractPhysicalObject types which are only reliably referenced in APOFS
+
+                                    string tagParams;
+                                    if (tags.Any())
+                                        tagParams = "<oA>" + string.Join("<oA>", tags.ToArray());
+                                    else
+                                        tagParams = "";
+
+                                    apo = SaveState.AbstractPhysicalObjectFromString(game.world, $"{id}<oA>{type}<oA>{pos.room}.{pos.x}.{pos.y}.{pos.abstractNode}{tagParams}");
+                                }
+                                break;
                         }
                         if (apo != null)
                         {
                             TargetPos.Room.AddEntity(apo);
                             apo.RealizeInRoom();
+
                         }
                     }
                     catch (Exception e)
                     {
-                        WriteLine("Failed to spawn object! See console log for more info.");
-                        Debug.Log("object failed: " + e.ToString());
+                        WriteLine("Failed to spawn object! See console log for more info or run \"object inspect\" to view an existing object's data.");
+                        if (apo == null)
+                            Debug.Log("object type: null");
+                        else
+                            Debug.Log($"object type: {apo.GetType().FullName}");
+                        Debug.Log("exception: " + e.ToString());
                     }
                 })
                 .Help("object [type] [tag1?] [tag2?] ...")
                 .AutoComplete(new string[][] {
                     Enum.GetNames(typeof(AbstractPhysicalObject.AbstractObjectType))
+                        .Where(o => o is not "Creature" or "DataPearl" or "PebblesPearl" )
+                        .Concat(new string[] {"inspect" }).ToArray()
                 })
                 .Register();
 

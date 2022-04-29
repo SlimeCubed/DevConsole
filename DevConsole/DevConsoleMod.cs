@@ -7,6 +7,13 @@ using System.Security.Permissions;
 
 namespace DevConsole
 {
+
+    /* Changes:
+     * 
+     * objects: Added support for more object types, added king command
+     * 
+     * 
+     */
     internal partial class DevConsoleMod : PartialityMod
     {
         public const string versionString = "0.3.0";
