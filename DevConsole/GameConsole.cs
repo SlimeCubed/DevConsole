@@ -86,7 +86,7 @@ namespace DevConsole
                     Array.Sort(helps);
                     if (helps.Length > 0)
                     {
-                        WriteLine($"Showing help for page {page}. Run \"wiki\" for more detailed descriptions.", new Color(0.5f, 1f, 0.75f));
+                        WriteLine($"Showing help for page {page + 1}. Run \"wiki\" for more detailed descriptions.", new Color(0.5f, 1f, 0.75f));
                         foreach (var help in helps)
                             WriteLine(help);
                     }
