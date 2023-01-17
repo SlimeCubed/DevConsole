@@ -5,15 +5,19 @@ using System.Text;
 using UnityEngine;
 using System.Reflection;
 using MonoMod.RuntimeDetour;
+using RWCustom;
+using BepInEx.Logging;
+using System.Collections;
+using Random = UnityEngine.Random;
 
 namespace DevConsole
 {
     using Commands;
     using BindEvents;
     using static GameConsole;
-    using System.Collections;
-    using Random = UnityEngine.Random;
-    using RWCustom;
+    using AssetBundles;
+    using System.Text.RegularExpressions;
+    using System.IO;
 
     // Contains all commands that come with the dev console
     internal static partial class BuiltInCommands
@@ -52,7 +56,7 @@ namespace DevConsole
                 {
                     var rw = UnityEngine.Object.FindObjectOfType<RainWorld>();
                     if (args.Length > 0 && args[0].Equals("force", StringComparison.OrdinalIgnoreCase) || rw.processManager.upcomingProcess == ProcessManager.ProcessID.MainMenu)
-                        rw.processManager.SwitchMainProcess(ProcessManager.ProcessID.MainMenu);
+                        rw.processManager.RequestMainProcessSwitch(ProcessManager.ProcessID.MainMenu, 0f);
                     else
                         rw.processManager.RequestMainProcessSwitch(ProcessManager.ProcessID.MainMenu);
                 })
@@ -462,7 +466,180 @@ namespace DevConsole
                 })
                 .Help("group [command1] [command2?] ...")
                 .Register();
-            
+
+            // Inspects asset bundles
+            {
+                var m_LoadedAssetBundles = typeof(AssetBundleManager).GetField("m_LoadedAssetBundles", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+
+                new CommandBuilder("bundles")
+                    .Run(args =>
+                    {
+                        if (args.Length == 0)
+                        {
+                            WriteLine("bundles list [name?] [page: 1]");
+                            WriteLine("bundles load [path]");
+                            WriteLine("bundles dump [name] [filter] [path: Dump]");
+                        }
+                        else
+                        {
+                            switch (args[0])
+                            {
+                                case "list":
+                                    if (args.Length > 1)
+                                    {
+                                        var bundle = AssetBundleManager.GetLoadedAssetBundle(args[1], out string err);
+                                        if (bundle == null || bundle.m_AssetBundle == null)
+                                        {
+                                            WriteLine($"Failed: {err}");
+                                        }
+                                        else
+                                        {
+                                            WritePaginated(bundle.m_AssetBundle.name, bundle.m_AssetBundle.GetAllAssetNames(), args.Length > 2 ? args[2] : null);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        var names = ((Dictionary<string, LoadedAssetBundle>)m_LoadedAssetBundles.GetValue(null)).Keys.ToArray();
+                                        Array.Sort(names);
+
+                                        WritePaginated("Loaded bundles", names, args.Length > 2 ? args[2] : null);
+                                    }
+                                    break;
+
+                                case "load":
+                                    if (args.Length > 1)
+                                    {
+                                        if (AssetBundleManager.GetLoadedAssetBundle(args[1], out _) == null)
+                                            AssetBundleManager.LoadAssetBundle(args[1]);
+
+                                        if (AssetBundleManager.GetLoadedAssetBundle(args[1], out _) == null)
+                                            WriteLine("Failed to load asset bundle!");
+                                        else
+                                            WriteLine("Loaded asset bundle!");
+                                    }
+                                    else
+                                        WriteLine("No bundle name specified!");
+                                    break;
+
+                                case "dump":
+                                    if(args.Length > 2)
+                                    {
+                                        var bundle = AssetBundleManager.GetLoadedAssetBundle(args[1], out string err);
+                                        if (bundle == null || bundle.m_AssetBundle == null)
+                                        {
+                                            WriteLine($"Failed: {err}");
+                                        }
+                                        else
+                                        {
+                                            Func<string, bool> pattern = s => s.Contains(args[2]);
+                                            try
+                                            {
+                                                if (args[2].Length > 1 && args[2][0] == '/' && args[2][args.Length - 1] == '/')
+                                                    pattern = new Regex(args[2].Substring(1, args[2].Length - 2), RegexOptions.IgnoreCase).IsMatch;
+                                            }
+                                            catch(Exception e)
+                                            {
+                                                WriteLine($"Couldn't parse regex: {e.Message}");
+                                                Debug.LogException(e);
+                                                return;
+                                            }
+
+                                            var names = bundle.m_AssetBundle.GetAllAssetNames().Where(pattern).ToArray();
+
+                                            int success = 0;
+                                            int failure = 0;
+                                            int unknown = 0;
+
+                                            var outDir = args.Length > 3 ? args[3] : "Dump";
+
+                                            foreach(var name in names)
+                                            {
+                                                var asset = bundle.m_AssetBundle.LoadAsset(name);
+                                                var outFile = Path.Combine(Application.streamingAssetsPath, outDir, name);
+
+                                                try
+                                                {
+                                                    bool unk = false;
+                                                    if(asset is AudioClip clip)
+                                                    {
+                                                        Directory.CreateDirectory(Path.GetDirectoryName(outFile));
+
+                                                        SavWav.Save(Path.ChangeExtension(outFile, ".wav"), clip);
+                                                    }
+                                                    else if(asset is Texture2D tex)
+                                                    {
+                                                        Directory.CreateDirectory(Path.GetDirectoryName(outFile));
+
+                                                        bool destroy = false;
+                                                        if(!tex.isReadable)
+                                                        {
+                                                            destroy = true;
+                                                            var rt = RenderTexture.GetTemporary(tex.width, tex.height, 0, RenderTextureFormat.ARGB32);
+                                                            Graphics.Blit(tex, rt);
+                                                            tex = new Texture2D(tex.width, tex.height, TextureFormat.ARGB32, false);
+
+                                                            var oldRT = RenderTexture.active;
+                                                            tex.ReadPixels(new Rect(0f, 0f, rt.width, rt.height), 0, 0);
+                                                            RenderTexture.active = oldRT;
+
+                                                            RenderTexture.ReleaseTemporary(rt);
+                                                        }
+
+                                                        File.WriteAllBytes(Path.ChangeExtension(outFile, "png"), tex.EncodeToPNG());
+
+                                                        if(destroy)
+                                                        {
+                                                            UnityEngine.Object.Destroy(tex);
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        unk = true;
+                                                    }
+
+                                                    if (unk)
+                                                        unknown++;
+                                                    else
+                                                        success++;
+                                                }
+                                                catch
+                                                {
+                                                    failure++;
+                                                }
+                                            }
+
+                                            WriteLine($"Succeeded: {success}");
+                                            WriteLine($"Failed: {failure}");
+                                            WriteLine($"Unknown format: {unknown}");
+                                        }
+                                    }
+                                    break;
+
+                                default:
+                                    WriteLine("Unknown subcommand!");
+                                    break;
+                            }
+                        }
+                    })
+                    .Help("bundles [subcommand?] [args...]")
+                    .AutoComplete(args => args.Length switch
+                    {
+                        0 => new string[] { "list", "load", "dump" },
+                        1 => args[0] switch
+                        {
+                            "list" or "dump" => ((Dictionary<string, LoadedAssetBundle>)m_LoadedAssetBundles.GetValue(null)).Keys,
+                            _ => null
+                        },
+                        2 => args[0] switch
+                        {
+                            "dump" => AssetBundleManager.GetLoadedAssetBundle(args[1], out _)?.m_AssetBundle?.GetAllAssetNames(),
+                            _ => null
+                        },
+                        _ => null
+                    })
+                    .Register();
+            }
+
             #endregion Misc
 
 
@@ -613,82 +790,6 @@ namespace DevConsole
 
             // Commands related to creatures
             #region Creatures
-
-            // Spawns a single creature by type
-            new CommandBuilder("creature")
-                .RunGame((game, args) =>
-                {
-                    try
-                    {
-                        if(args.Length < 1)
-                        {
-                            WriteLine("No creature type specified!");
-                            return;
-                        }
-                        // Find the creature to spawn, first by exact name then by creature type enum
-                        CreatureTemplate template;
-                        try
-                        {
-                            template = StaticWorld.creatureTemplates.FirstOrDefault(t => t.name.Equals(args[0], StringComparison.OrdinalIgnoreCase));
-                            if (template == null) template = StaticWorld.GetCreatureTemplate((CreatureTemplate.Type)Enum.Parse(typeof(CreatureTemplate.Type), args[0], true));
-                        }
-                        catch
-                        {
-                            Debug.Log("Unknown creature type!");
-                            return;
-                        }
-
-                        // Parse ID or ID number
-                        EntityID? id = null;
-                        if(args.Length > 1)
-                        {
-                            if (args[1].Contains('.'))
-                            {
-                                try
-                                {
-                                    id = EntityID.FromString(args[1]);
-                                }
-                                catch
-                                {
-                                    WriteLine("Failed to parse entity ID! It should be formatted like: ID.123.456");
-                                    return;
-                                }
-                            }
-                            else
-                            {
-                                if (int.TryParse(args[1], out int idNum))
-                                    id = new EntityID(0, idNum);
-                                else
-                                {
-                                    WriteLine("Failed to parse entity ID number! It should be formatted like: 123");
-                                    return;
-                                }
-                            }
-                        }
-
-                        var crit = new AbstractCreature(
-                            game.world,
-                            template,
-                            null,
-                            TargetPos.Room.GetWorldCoordinate(TargetPos.Pos),
-                            id ?? game.GetNewID()
-                        );
-                        TargetPos.Room.AddEntity(crit);
-
-                        if (TargetPos.Room.realizedRoom != null)
-                            crit.RealizeInRoom();
-                    }
-                    catch(Exception e)
-                    {
-                        WriteLine("Failed to spawn creature! See console log for more info.");
-                        Debug.Log("creature failed:" + e.ToString());
-                    }
-                })
-                .Help("creature [type] [ID?]")
-                .AutoComplete(new string[][] {
-                    Enum.GetNames(typeof(CreatureTemplate.Type)).Concat(StaticWorld.creatureTemplates.Select(t => t.name)).ToArray()
-                })
-                .Register();
 
             // Kills everything in the current region
             new CommandBuilder("remove_crits")
@@ -1007,11 +1108,7 @@ namespace DevConsole
                             return noclip ? 100000f : orig(self, horizontalPos);
                         }
 
-#if BEPCOMP
                         Room.Tile RemoveTiles(On.Room.orig_GetTile_int_int orig, Room self, int x, int y)
-#else
-                        Room.Tile RemoveTiles(On.Room.orig_GetTile_3 orig, Room self, int x, int y)
-#endif
                         {
                             return noclip ? new Room.Tile(x, y, Room.Tile.TerrainType.Air, false, false, false, 0, 0) : orig(self, x, y);
                         }
@@ -1020,11 +1117,7 @@ namespace DevConsole
                         {
                             hooks.Add(new Hook(typeof(Player).GetMethod("Update"), (On.Player.hook_Update)NoClip));
                             hooks.Add(new Hook(typeof(Room).GetMethod("FloatWaterLevel"), (On.Room.hook_FloatWaterLevel)HighWaterLevel));
-#if BEPCOMP
                             hooks.Add(new Hook(typeof(Room).GetMethod("GetTile", new Type[] { typeof(int), typeof(int) }), (On.Room.hook_GetTile_int_int)RemoveTiles));
-#else
-                            hooks.Add(new Hook(typeof(Room).GetMethod("GetTile", new Type[] { typeof(int), typeof(int) }), (On.Room.hook_GetTile_3)RemoveTiles));
-#endif
                             WriteLine("Enabled noclip.");
                         }
                         else
@@ -1183,21 +1276,10 @@ namespace DevConsole
                             return;
                         }
                         bool give = args[0] == "give";
-                        MultiplayerUnlocks.SandboxUnlockID? sid = null;
-                        MultiplayerUnlocks.LevelUnlockID? lid = null;
-                        try
-                        {
-                            sid = (MultiplayerUnlocks.SandboxUnlockID)Enum.Parse(typeof(MultiplayerUnlocks.SandboxUnlockID), args[1], true);
-                        }
-                        catch { }
+                        var sandboxID = new MultiplayerUnlocks.SandboxUnlockID(args[1]);
+                        var levelID = new MultiplayerUnlocks.LevelUnlockID(args[1]);
 
-                        try
-                        {
-                            lid = (MultiplayerUnlocks.LevelUnlockID)Enum.Parse(typeof(MultiplayerUnlocks.LevelUnlockID), args[1], true);
-                        }
-                        catch { }
-
-                        if (sid == null && lid == null)
+                        if ((int)sandboxID == -1 && (int)levelID == -1)
                         {
                             WriteLine("No valid unlock ID was given! Try running \"unlock list\".");
                             return;
@@ -1206,18 +1288,29 @@ namespace DevConsole
                         switch(args[0])
                         {
                             case "give":
-                                if (lid != null)
-                                    miscProg.SetTokenCollected(lid.Value);
+                                if ((int)levelID != -1)
+                                {
+                                    miscProg.SetTokenCollected(levelID);
+                                    WriteLine($"Unlocked {levelID}.");
+                                }
                                 else
-                                    miscProg.SetTokenCollected(sid.Value);
-                                WriteLine($"Unlocked \"{lid?.ToString() ?? sid.ToString()}\".");
+                                {
+                                    miscProg.SetTokenCollected(sandboxID);
+                                    WriteLine($"Unlocked {sandboxID}.");
+                                }
                                 break;
+
                             case "take":
-                                if (lid != null)
-                                    miscProg.levelTokens[(int)lid.Value] = false;
+                                if ((int)levelID != -1)
+                                {
+                                    miscProg.levelTokens.Remove(levelID);
+                                    WriteLine($"Locked {levelID}.");
+                                }
                                 else
-                                    miscProg.sandboxTokens[(int)sid.Value] = false;
-                                WriteLine($"Locked \"{lid?.ToString() ?? sid.ToString()}\".");
+                                {
+                                    miscProg.sandboxTokens.Remove(sandboxID);
+                                    WriteLine($"Locked {sandboxID}.");
+                                }
                                 break;
                         }
                     }
@@ -1367,199 +1460,81 @@ namespace DevConsole
             // Commands related to objects
             #region Objects
 
-            // Spawn an object by type
-            new CommandBuilder("object")
+            // Spawn an object by class
+            new CommandBuilder("spawn_raw")
                 .RunGame((game, args) =>
                 {
-                    // Inspect object
-                    if (args.Length == 1 && "inspect".Equals(args[0], StringComparison.InvariantCultureIgnoreCase))
+                    if(args.Length == 0)
                     {
-                        var pos = TargetPos;
-                        if (pos.Room?.realizedRoom == null)
-                        {
-                            WriteLine("Target must be in a realized room!");
-                        }
-                        else
-                        {
-                            float minDist = float.PositiveInfinity;
-                            PhysicalObject target = null;
-                            foreach (var obj in pos.Room.realizedRoom.physicalObjects.SelectMany(o => o))
-                            {
-                                if (obj?.firstChunk == null) continue;
-                                if (obj.abstractPhysicalObject is AbstractCreature) continue;
-
-                                float dist = Vector2.Distance(obj.firstChunk.pos, pos.Pos);
-                                if (dist < minDist)
-                                {
-                                    minDist = dist;
-                                    target = obj;
-                                }
-                            }
-
-                            if (target == null)
-                            {
-                                WriteLine("Could not find an object to inspect!");
-                            }
-                            else
-                            {
-                                string savedObject;
-                                try
-                                {
-                                    savedObject = target.abstractPhysicalObject.ToString();
-                                    var res = new StringBuilder("object ");
-                                    res.Append(target.abstractPhysicalObject.type.ToString().EscapeCommandLine());
-                                    foreach (var part in savedObject.Split(new string[] { "<oA>" }, StringSplitOptions.None).Skip(3))
-                                    {
-                                        res.Append(" ");
-                                        res.Append(part.EscapeCommandLine());
-                                    }
-                                    WriteLine(res.ToString());
-                                }
-                                catch (Exception e)
-                                {
-                                    WriteLine("Failed to inspect object! See console log for more info.");
-                                    Debug.Log("object inspect failed: " + e.ToString());
-                                }
-                            }
-                        }
+                        WriteLine("No object class specified!");
                         return;
                     }
 
-                    AbstractPhysicalObject.AbstractObjectType type;
-                    try
+                    if (args[0].Equals("scan", StringComparison.OrdinalIgnoreCase))
                     {
-                        type = (AbstractPhysicalObject.AbstractObjectType)Enum.Parse(typeof(AbstractPhysicalObject.AbstractObjectType), args[0], true);
+                        ObjectSpawner.ScanTypes();
+                        WriteLine("Objects scanned!");
                     }
-                    catch
+                    else
                     {
-                        WriteLine("Invalid object type!");
+                        try
+                        {
+                            var coord = TargetPos.Room.GetWorldCoordinate(TargetPos.Pos);
+                            var obj = ObjectSpawner.CreateAbstractObject(args, TargetPos.Room, coord);
+                            TargetPos.Room.AddEntity(obj);
+                            if (TargetPos.Room.realizedRoom != null)
+                            {
+                                obj.RealizeInRoom();
+                                obj.realizedObject.firstChunk.HardSetPosition(TargetPos.Pos);
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            WriteLine(e.Message);
+                            Debug.Log(e);
+                        }
+                    }
+                })
+                .Help("spawn_raw [class] [ID?] [args...]")
+                .AutoComplete(args =>
+                {
+                    var ac = ObjectSpawner.Autocomplete(args);
+                    if (args.Length == 0)
+                        return ac.Concat(new string[] { "scan" });
+                    else
+                        return ac;
+                })
+                .Register();
+
+            // Spawn an object by type in a safer way than spawn_raw
+            new CommandBuilder("spawn")
+                .RunGame((game, args) =>
+                {
+                    if (args.Length == 0)
+                    {
+                        WriteLine("No object type specified!");
                         return;
                     }
 
-                    // Spawn object
-                    AbstractPhysicalObject apo = null;
                     try
                     {
-                        var pos = TargetPos.Room.GetWorldCoordinate(TargetPos.Pos);
-                        var id = game.GetNewID();
-                        var tags = args.Skip(1);
-
-                        switch (type)
+                        var coord = TargetPos.Room.GetWorldCoordinate(TargetPos.Pos);
+                        var obj = ObjectSpawner.CreateAbstractObjectSafe(args, TargetPos.Room, coord);
+                        TargetPos.Room.AddEntity(obj);
+                        if (TargetPos.Room.realizedRoom != null)
                         {
-                            // Spawn special vanilla objects
-                            case AbstractPhysicalObject.AbstractObjectType.Spear: apo = new AbstractSpear(game.world, null, pos, id, tags.Contains("explosive")); break;
-                            case AbstractPhysicalObject.AbstractObjectType.BubbleGrass: apo = new BubbleGrass.AbstractBubbleGrass(game.world, null, pos, id, 1f, -1, -1, null); break;
-                            case AbstractPhysicalObject.AbstractObjectType.SporePlant: apo = new SporePlant.AbstractSporePlant(game.world, null, pos, id, -1, -1, null, false, true); break;
-                            case AbstractPhysicalObject.AbstractObjectType.WaterNut: apo = new WaterNut.AbstractWaterNut(game.world, null, pos, id, -1, -1, null, tags.Contains("swollen")); break;
-                            case AbstractPhysicalObject.AbstractObjectType.EggBugEgg: apo = new EggBugEgg.AbstractBugEgg(game.world, null, pos, id, Mathf.Lerp(-0.15f, 0.1f, Custom.ClampedRandomVariation(0.5f, 0.5f, 2f))); break;
-                            case AbstractPhysicalObject.AbstractObjectType.VultureMask: apo = new VultureMask.AbstractVultureMask(game.world, null, pos, id, id.RandomSeed, tags.Contains("king")); break;
-                            case AbstractPhysicalObject.AbstractObjectType.SeedCob: apo = new SeedCob.AbstractSeedCob(game.world, null, pos, id, -1, -1, false, null); break;
-                            case AbstractPhysicalObject.AbstractObjectType.OverseerCarcass:
-                                {
-                                    int owner = Random.Range(0, 4);
-                                    var col = owner switch
-                                    {
-                                        0 => new Color(0.447058827f, 0.9019608f, 0.768627465f),
-                                        2 => new Color(0f, 1f, 0f),
-                                        3 => new Color(1f, 0.8f, 0.3f),
-                                        _ => new Color(0.447058827f, 0.9019608f, 0.768627465f),
-                                    };
-                                    apo = new OverseerCarcass.AbstractOverseerCarcass(game.world, null, pos, id, col, owner);
-                                }
-                                break;
-                            case AbstractPhysicalObject.AbstractObjectType.DataPearl:
-                            case AbstractPhysicalObject.AbstractObjectType.PebblesPearl:
-                                WriteLine("Could not spawn pearl! Use the pearl command instead.");
-                                break;
-                            case AbstractPhysicalObject.AbstractObjectType.Creature:
-                                WriteLine("Could not spawn creature! Use the creature command instead.");
-                                break;
-                            default:
-                                if (type <= AbstractPhysicalObject.AbstractObjectType.OverseerCarcass)
-                                {
-                                    // Spawn standard vanilla object
-                                    if (AbstractConsumable.IsTypeConsumable(type)) apo = new AbstractConsumable(game.world, type, null, pos, id, -1, -1, null);
-                                    else apo = new AbstractPhysicalObject(game.world, type, null, pos, id);
-                                }
-                                else
-                                {
-                                    // Spawn modded object, proceed with caution
-                                    // Most mods use custom AbstractPhysicalObject types which are only reliably referenced in APOFS
-
-                                    string tagParams;
-                                    if (tags.Any())
-                                        tagParams = "<oA>" + string.Join("<oA>", tags.ToArray());
-                                    else
-                                        tagParams = "";
-
-                                    apo = SaveState.AbstractPhysicalObjectFromString(game.world, $"{id}<oA>{type}<oA>{pos.room}.{pos.x}.{pos.y}.{pos.abstractNode}{tagParams}");
-                                }
-                                break;
-                        }
-                        if (apo != null)
-                        {
-                            TargetPos.Room.AddEntity(apo);
-                            apo.RealizeInRoom();
-
+                            obj.RealizeInRoom();
+                            obj.realizedObject.firstChunk.HardSetPosition(TargetPos.Pos);
                         }
                     }
                     catch (Exception e)
                     {
-                        WriteLine("Failed to spawn object! See console log for more info or run \"object inspect\" to view an existing object's data.");
-                        if (apo == null)
-                            Debug.Log("object type: null");
-                        else
-                            Debug.Log($"object type: {apo.GetType().FullName}");
-                        Debug.Log("exception: " + e.ToString());
+                        WriteLine(e.Message);
+                        Debug.Log(e);
                     }
                 })
-                .Help("object [type] [tag1?] [tag2?] ...")
-                .AutoComplete(new string[][] {
-                    Enum.GetNames(typeof(AbstractPhysicalObject.AbstractObjectType))
-                        .Where(o => o is not "Creature" or "DataPearl" or "PebblesPearl" )
-                        .Concat(new string[] {"inspect" }).ToArray()
-                })
-                .Register();
-
-            // Spawns a pearl by ID
-            new CommandBuilder("pearl")
-                .RunGame((game, args) =>
-                {
-                    try
-                    {
-                        if (args.Length == 0)
-                        {
-                            // Print all known pearl types
-                            var names = Enum.GetNames(typeof(DataPearl.AbstractDataPearl.DataPearlType));
-                            WriteLine("Pearls: " + string.Join(", ", names));
-                            return;
-                        }
-
-                        var type = (DataPearl.AbstractDataPearl.DataPearlType)Enum.Parse(typeof(DataPearl.AbstractDataPearl.DataPearlType), args[0], true);
-
-                        AbstractPhysicalObject pearl;
-                        if (type == DataPearl.AbstractDataPearl.DataPearlType.PebblesPearl)
-                            pearl = new PebblesPearl.AbstractPebblesPearl(game.world, null, TargetPos.Room.GetWorldCoordinate(TargetPos.Pos), game.GetNewID(), -1, -1, null, Random.Range(0, 3), Random.Range(0, 10000));
-                        else
-                            pearl = new DataPearl.AbstractDataPearl(game.world, AbstractPhysicalObject.AbstractObjectType.DataPearl, null, TargetPos.Room.GetWorldCoordinate(TargetPos.Pos), game.GetNewID(), -1, -1, null, type);
-
-                        TargetPos.Room.AddEntity(pearl);
-                        pearl.pos = TargetPos.Room.GetWorldCoordinate(TargetPos.Pos);
-                        pearl.RealizeInRoom();
-                        pearl.realizedObject.firstChunk.HardSetPosition(TargetPos.Pos);
-
-                        WriteLine($"Spawned pearl: {type}");
-                    }
-                    catch(Exception e)
-                    {
-                        WriteLine("Could not spawn pearl! See console log for more information.");
-                        Debug.Log("Failed to spawn pearl! " + e.ToString());
-                    }
-                })
-                .Help("pearl [pearl_type?]")
-                .AutoComplete(new string[][] {
-                    Enum.GetNames(typeof(DataPearl.AbstractDataPearl.DataPearlType))
-                })
+                .Help("spawn [type] [ID?] [args...]")
+                .AutoComplete(ObjectSpawner.AutocompleteSafe)
                 .Register();
 
             // Randomize the fields of all selected realized objects
@@ -1594,6 +1569,7 @@ namespace DevConsole
 
             #endregion Objects
 
+
             // Commands related to the console
             #region Meta
 
@@ -1601,11 +1577,9 @@ namespace DevConsole
             new CommandBuilder("show_debug")
                 .Run(args =>
                 {
-                    var cb = (Application.LogCallback)Application_s_LogCallback.GetValue(null);
-                    if (showingDebug) cb -= WriteLogToConsole;
-                    else cb += WriteLogToConsole;
+                    if (showingDebug) Application.logMessageReceived -= WriteLogToConsole;
+                    else Application.logMessageReceived += WriteLogToConsole;
                     showingDebug = !showingDebug;
-                    Application.RegisterLogCallback(cb);
                     WriteLine(showingDebug ? "Debug messages will be displayed here." : "Debug messages will no longer be displayed here.");
 
                     if (args.Length > 0 && bool.TryParse(args[0], out bool argBool) && argBool)
@@ -1696,11 +1670,42 @@ namespace DevConsole
             #endregion Meta
         }
 
+        private static void WritePaginated(string title, IEnumerable<string> contents, string page, int pageSize = -1)
+        {
+            if (pageSize <= 0)
+                pageSize = OutputLines - 1;
+
+            int pageNum = 0;
+            if(page == null)
+            {
+                pageNum = 0;
+            }
+            else if(page.Equals("all", StringComparison.OrdinalIgnoreCase))
+            {
+                pageSize = Math.Max(contents.Count(), 1);
+            }
+            else if(int.TryParse(page, out int newPageNum))
+            {
+                pageNum = newPageNum - 1;
+            }
+
+            int totalPages = (contents.Count() + pageSize - 1) / pageSize;
+            if (pageNum >= totalPages) pageNum = totalPages - 1;
+            else if (pageNum < 0) pageNum = 0;
+
+            WriteLine($"{title} - page {pageNum + 1} / {totalPages}.", new Color(0.5f, 1f, 0.75f));
+
+            foreach (var assetName in contents.Skip(pageNum * pageSize).Take(pageSize))
+            {
+                WriteLine(assetName);
+            }
+        }
+
         private static string[] keyNames;
         private static IEnumerable<string> GetKeyNames()
         {
             if (keyNames == null)
-                keyNames = Enum.GetNames(typeof(KeyCode));
+                keyNames = ExtEnumBase.GetNames(typeof(KeyCode));
             return keyNames;
         }
 

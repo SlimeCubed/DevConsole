@@ -1,0 +1,10 @@
+{
+	"id": "slime-cubed.devconsole",
+	"name": "Dev Console",
+	"version": "1.0.0"
+	"authors": "Slime_Cubed",
+	"description": "Adds an extensible in-game command console to Rain World inspired by the Source engine.",
+	"requirements": [],
+	"requirements_names": [],
+	"checksum_override_version": false
+}

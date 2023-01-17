@@ -11,6 +11,7 @@ using RWCustom;
 namespace DevConsole
 {
     using Commands;
+    using DevConsole.Config;
     using System.Diagnostics;
 
     /// <summary>
@@ -42,7 +43,6 @@ namespace DevConsole
         private readonly Queue<LineInfo> lines = new Queue<LineInfo>(); // Stores the most recent output lines added
         private readonly List<string> history = new List<string>();     // Stores the most recent commands so they may be traversed
         private int indexInHistory;        // Which entry in history the user is viewing, or -1 if this command was written from scratch
-        private bool initialized;          // True once the console has been created - it must wait for Futile to init
         private bool typing;               // True when input is redirected to the command line
         private bool silent;               // True when all logs to the console should be hidden
         private FContainer container;      // The container for all game console nodes
@@ -92,7 +92,7 @@ namespace DevConsole
                     }
                     else
                     {
-                        WriteLine($"Page {page} empty!", new Color(0.5f, 1f, 0.75f));
+                        WriteLine($"Page {page + 1} empty!", new Color(0.5f, 1f, 0.75f));
                     }
                 })
                 .Help("help [page: 1]")
@@ -108,7 +108,7 @@ namespace DevConsole
         /// Whether the in-game console is ready to open.
         /// Methods calls in <see cref="GameConsole"/>, unless otherwise specified, will wait for the console to be initialized to execute.
         /// </summary>
-        public static bool Initialized => instance?.initialized ?? false;
+        public static bool Initialized => instance != null;
 
         /// <summary>
         /// Enumerates all commands that are compatible with autocomplete.
@@ -156,6 +156,7 @@ namespace DevConsole
                 if (value == null) throw new ArgumentNullException(nameof(value), "Font name may not be null!");
                 if (value == currentFont) return;
 
+                ConsoleConfig.font.Value = value;
                 currentFont = value;
                 Clear();
             }
@@ -165,6 +166,7 @@ namespace DevConsole
         {
             instance = new GameObject("Dev Console").AddComponent<GameConsole>();
             instance.mod = mod;
+            instance.Initialize();
         }
 
         internal static void Undo()
@@ -342,10 +344,10 @@ namespace DevConsole
 
         private void Update()
         {
-            if (!initialized)
+            // Update font from config
+            if(CurrentFont != ConsoleConfig.font.Value)
             {
-                if (Futile.instance == null || Futile.atlasManager == null) return;
-                Initialize();
+                CurrentFont = ConsoleConfig.font.Value;
             }
 
             // Print out lines sent from another thread or before init
@@ -376,7 +378,7 @@ namespace DevConsole
                 container.isVisible = true;
                 skipInput = true;
 
-                PauseGame(DevConsoleMod.autopause || (forceOpen?.pause ?? false));
+                PauseGame(ConsoleConfig.autopause.Value || (forceOpen?.pause ?? false));
             }
             else if (typing && (Input.GetKeyUp(KeyCode.Escape) || Input.GetKeyDown(KeyCode.BackQuote)))
             {
@@ -495,8 +497,8 @@ namespace DevConsole
             if (container.isVisible)
             {
                 // Center console
-                container.x = Mathf.Floor(Futile.screen.halfWidth) - consoleWidth / 2 + 0.1f;
-                container.y = Mathf.Floor(Futile.screen.halfHeight) - consoleHeight / 2 + 0.1f;
+                container.x = Futile.screen.pixelWidth / 2 - consoleWidth / 2 + 0.1f;
+                container.y = Futile.screen.pixelHeight / 2 - consoleHeight / 2 + 0.1f;
 
                 // Position labels
                 int y = consoleMargin;
@@ -540,8 +542,6 @@ namespace DevConsole
 
         private void Initialize()
         {
-            initialized = true;
-
             CustomFonts.Load();
             container = new FContainer();
             textContainer = new FContainer();
@@ -604,7 +604,7 @@ namespace DevConsole
 
         private void LateUpdate()
         {
-            if (container.isVisible)
+            if (container != null && container.isVisible)
                 container.MoveToFront();
         }
 

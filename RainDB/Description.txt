@@ -1,0 +1,2 @@
+Dev Console by Slime_Cubed (Partiality mod for v1.5, no dependencies)
+Adds an extensible in-game command console to Rain World inspired by the Source engine.

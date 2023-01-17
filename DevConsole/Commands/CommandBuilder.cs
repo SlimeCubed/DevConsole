@@ -29,6 +29,7 @@ namespace DevConsole.Commands
         /// <param name="name">The name of the command.</param>
         public CommandBuilder(string name) : this()
         {
+            UnityEngine.Debug.Log($"Command: {name}");
             Name(name);
         }
 

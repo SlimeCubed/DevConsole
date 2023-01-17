@@ -1,45 +1,59 @@
-﻿using Partiality.Modloader;
+﻿using System;
+using BepInEx;
+using DevConsole.Config;
+using System.Runtime.CompilerServices;
 using System.Security;
 using System.Security.Permissions;
 
+#pragma warning disable CS0618 // Type or member is obsolete
+[assembly: IgnoresAccessChecksTo("Assembly-CSharp")]
 [assembly: SecurityPermission(SecurityAction.RequestMinimum, SkipVerification = true)]
 [module: UnverifiableCode]
+#pragma warning restore CS0618 // Type or member is obsolete
 
 namespace DevConsole
 {
-
-    /* Changes:
-     * 
-     * objects: Added support for more object types, added king command
-     * 
-     * 
-     */
-    internal partial class DevConsoleMod : PartialityMod
+    [BepInPlugin(MOD_ID, "Dev Console", MOD_VERSION)]
+    internal class DevConsoleMod : BaseUnityPlugin
     {
-        public const string versionString = "0.3.1";
-        public int version = 3;
-        public string updateURL = "http://beestuff.pythonanywhere.com/audb/api/mods/6/1";
-        public string keyE = "AQAB";
-        public string keyN = "szjz4lkR8G9JuQ4Jt2DEk7h5hRcvpX0LfHWXp203VrsSwWenj2xho0zl8m6gsSYNVaBFm3WXbqkj7snI+DuheYfvSLpfLZsHCOF2XdIO2FCyOFSUmQ7T4Jvd/ap5jFMofXu6geBf0hl0H4VJ1/D2SpDg7rkAi+hAbHBd1d7o1mfON1ZdzDKIeTeFCstw5w+ImfE83sg1OspLmrrec3UNyXlNzc5x+r5gHwgOfMMTWLfI1fUVRd3o43U+zV7PHsyOjPGzHfLVLS3IO6va3Pc7sng+bxifchP9IWS4RTps4qmGA6AcQE2qaI1oH0Ql9EzAfBeIhvNXica0nlTHBJQ8tZxewA1igdHl2deSgszpKseAPPxsg9+njoaq4rvqcEys3/KfJImxyS3W49U+GxGmoPx298GMSUlfyw3zY3Ytlbb7/7tbHfP71G4/ISwkn+WyhufE3SLYWX/6uR//0aMGNe/zoH8AOvnPtepX4Mwy3HYnETzc5WsCgetmCViEI0YdAKl3FClgtuhsYRXmEXDy7yeVpTSsAzoUdkqnzFSG5ykm1mh1ISCpBiQ9prB2inCaWMc6DALWsFUElOV6yVbmWorfX2EiNesDhoFmAxz6pt6CADVBoxewDTFUtT103jYVkROKe4oNUr2W0Sj1sEv6kURHfjE5+3OLfbrk3OLJrnU=";
+        public const string MOD_ID = "slime-cubed.devconsole";
+        public const string MOD_VERSION = "1.0.0";
+        private static bool initialized = false;
 
-        // Config
-        public static bool autopause = true; // Pause the game when the console is open
-
-        public DevConsoleMod()
+        public void Awake()
         {
-            ModID = "Dev Console";
-            Version = versionString;
-            author = "Slime_Cubed";
-        }
+            On.RainWorld.OnModsInit += (orig, self) =>
+            {
+                orig(self);
 
-        public override void OnLoad()
-        {
-            GameConsole.Apply(this);
-        }
+                if (initialized) return;
+                initialized = true;
 
-        public override void OnDisable()
-        {
-            GameConsole.Undo();
+                Logger.LogWarning("Initialized");
+                try
+                {
+                    MachineConnector.SetRegisteredOI(MOD_ID, new ConsoleConfig());
+                    GameConsole.Apply(this);
+                }
+                catch(Exception e)
+                {
+                    UnityEngine.Debug.LogException(e);
+                }
+            };
+
+            On.RainWorld.PreModsInit += (orig, self) =>
+            {
+                orig(self);
+
+                ObjectSpawner.ClearSafeSpawners();
+            };
+
+            On.RainWorld.PostModsInit += (orig, self) =>
+            {
+                orig(self);
+
+                ObjectSpawner.RegisterSafeSpawners();
+            };
         }
     }
 }

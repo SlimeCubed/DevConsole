@@ -13,6 +13,7 @@ namespace DevConsole
         private readonly List<FLabel> labels = new List<FLabel>();
         private List<string> options;
         private int currentArgLength = 0;
+        public const string hintPrefix = "help-";
 
         public FContainer Container { get; }
         public Color TextColor => Color.gray;
@@ -64,7 +65,7 @@ namespace DevConsole
 
                 // Create the label
                 var option = options[i];
-                var label = new FLabel(GameConsole.CurrentFont, option.Substring(currentArgLength));
+                var label = new FLabel(GameConsole.CurrentFont, option.Substring(option.StartsWith(hintPrefix) ? hintPrefix.Length : currentArgLength));
                 label.anchorX = 0f;
                 label.anchorY = 0f;
                 label.x = 0f;
@@ -133,15 +134,22 @@ namespace DevConsole
                 if (acOptions != null)
                 {
                     options.AddRange(acOptions
-                        .Select(str => str.EscapeCommandLine())
-                        .Where(str => str.StartsWith(writingArg, StringComparison.OrdinalIgnoreCase))
+                        .Select(str => str.StartsWith(hintPrefix) ? str : str.EscapeCommandLine())
+                        .Where(str => str.StartsWith(hintPrefix) ? (writingArg.Length == 0) : str.StartsWith(writingArg, StringComparison.OrdinalIgnoreCase))
                         .Where(str => !string.IsNullOrEmpty(str))
                     );
                 }
             }
 
             // Remove duplicates, seek to the last selected option
-            options.Sort();
+            // Move hints to the front
+            options.Sort((a, b) =>
+            {
+                if (a.StartsWith(hintPrefix) != b.StartsWith(hintPrefix))
+                    return a.StartsWith(hintPrefix) ? -1 : 1;
+                else
+                    return Comparer<string>.Default.Compare(a, b);
+            });
             DedupSorted(options);
             currentArgLength = writingArg.Length;
             return options;
@@ -179,7 +187,7 @@ namespace DevConsole
 
         public void Update(StringBuilder inputString, bool allowScroll)
         {
-            if (Input.GetKeyDown(KeyCode.Tab))
+            if (Input.GetKeyDown(KeyCode.Tab) && (CurrentOption == null || !CurrentOption.StartsWith(hintPrefix)))
             {
                 // Autocomplete when tab is pressed
                 string acOption = CurrentOption;
