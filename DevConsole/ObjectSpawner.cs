@@ -550,7 +550,7 @@ namespace DevConsole
                     MSCCritType.ScavengerKing,
                     MSCCritType.SlugNPC,
                     MSCCritType.SpitLizard,
-                    MSCCritType.StowawayBug,
+                    //MSCCritType.StowawayBug,
                     MSCCritType.TerrorLongLegs,
                     MSCCritType.TrainLizard,
                     MSCCritType.Yeek,
@@ -595,29 +595,40 @@ namespace DevConsole
                         (type, args, id, room, pos) =>
                         {
                             var template = StaticWorld.GetCreatureTemplate(t);
-                            var crit = new AbstractCreature(room.world, template, null, pos, id);
 
                             // Find a good node to spawn the creature at
                             if (!pos.NodeDefined || !template.mappedNodeTypes[pos.abstractNode])
                             {
-                                if(room.realizedRoom is Room realRoom)
+                                if (room.realizedRoom is Room realRoom)
                                 {
-                                    float minDist = float.PositiveInfinity;
-                                    for(int i = room.NodesRelevantToCreature(template) - 1; i >= 0; i--)
-                                    {
-                                        var test = realRoom.LocalCoordinateOfNode(room.CreatureSpecificToCommonNodeIndex(i, template));
+                                    bool denCrit = t == CritType.TentaclePlant || t == CritType.PoleMimic || t == MSCCritType.StowawayBug;
 
-                                        float dist = pos.Tile.FloatDist(test.Tile);
-                                        if(!pos.NodeDefined || dist < minDist)
+                                    float minDist = float.PositiveInfinity;
+                                    for (int i = 0; i < room.nodes.Length; i++)
+                                    {
+                                        var nodeType = room.nodes[i].type;
+                                        var nodePos = realRoom.LocalCoordinateOfNode(i);
+                                        nodePos.abstractNode = i;
+
+                                        if (i < template.mappedNodeTypes.Length && template.mappedNodeTypes[i]
+                                            || denCrit && nodeType == AbstractRoomNode.Type.Den
+                                            || t == CritType.GarbageWorm && nodeType == AbstractRoomNode.Type.GarbageHoles)
                                         {
-                                            minDist = dist;
+                                            float dist = pos.Tile.FloatDist(nodePos.Tile);
+                                            if (!pos.NodeDefined || dist < minDist)
+                                            {
+                                                minDist = dist;
+                                                pos.abstractNode = nodePos.abstractNode;
+                                            }
                                         }
                                     }
                                 }
 
-                                if(!pos.NodeDefined)
+                                if (!pos.NodeDefined)
                                     pos.abstractNode = room.RandomRelevantNode(template);
                             }
+
+                            var crit = new AbstractCreature(room.world, template, null, pos, id);
 
                             if (args.Length > 0)
                             {
@@ -634,6 +645,7 @@ namespace DevConsole
                             }
 
                             crit.setCustomFlags();
+                            crit.Move(pos);
                             return crit;
                         }
                     ));
@@ -725,6 +737,28 @@ namespace DevConsole
             else
             {
                 throw new ArgumentException($"Unknown object or creature type: {args[0]}");
+            }
+        }
+
+        internal static void AddToRoom(AbstractPhysicalObject obj)
+        {
+            var room = obj.world.GetAbstractRoom(obj.pos);
+            if (obj is AbstractCreature crit &&
+                (crit.creatureTemplate.type == CritType.PoleMimic
+                || crit.creatureTemplate.type == CritType.TentaclePlant
+                || crit.creatureTemplate.type == MSCCritType.StowawayBug)
+                && crit.pos.NodeDefined
+                && room.GetNode(crit.pos).type == AbstractRoomNode.Type.Den)
+            {
+                obj.world.GetAbstractRoom(0).entitiesInDens.Add(obj);
+            }
+            else
+            {
+                room.AddEntity(obj);
+                if (room.realizedRoom != null)
+                {
+                    obj.RealizeInRoom();
+                }
             }
         }
 

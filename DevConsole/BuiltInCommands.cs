@@ -9,6 +9,8 @@ using RWCustom;
 using BepInEx.Logging;
 using System.Collections;
 using Random = UnityEngine.Random;
+using CritType = CreatureTemplate.Type;
+using MSCCritType = MoreSlugcats.MoreSlugcatsEnums.CreatureTemplateType;
 
 namespace DevConsole
 {
@@ -1066,6 +1068,45 @@ namespace DevConsole
                 .Help("push [strength] [selector?]")
                 .Register();
 
+            // Stun all creatures for a certain amount of time
+            new CommandBuilder("stun")
+                .RunGame((game, args) =>
+                {
+                    if (args.Length < 1 || !int.TryParse(args[0], out int duration))
+                    {
+                        WriteLine("Expected an integer [duration] argument.");
+                        return;
+                    }
+
+                    var abstrobjs = Selection.SelectAbstractObjects(game, args.Length > 1 ? args[1] : null);
+                    var logs = new DedupCache<string>();
+
+                    foreach (var abstrobj in abstrobjs)
+                    {
+                        if (abstrobj.type != AbstractPhysicalObject.AbstractObjectType.Creature)
+                            continue;
+
+                        if (abstrobj.realizedObject is not Creature c)
+                        {
+                            logs.Add("Failed to stun a non-realized creature.");
+                            continue;
+                        }
+
+                        if (c.room.abstractRoom.index != TargetPos.Room?.index)
+                        {
+                            logs.Add("Failed to stun a creature in another room.");
+                            continue;
+                        }
+
+                        c.Stun(duration);
+
+                        foreach (var line in logs.AsStrings())
+                            WriteLine(line);
+                    }
+                })
+                .Help("stun [duration] [selector?]")
+                .Register();
+
             // Allows players to swim through everything
             {
                 bool noclip = false;
@@ -1520,12 +1561,7 @@ namespace DevConsole
                     {
                         var coord = TargetPos.Room.GetWorldCoordinate(TargetPos.Pos);
                         var obj = ObjectSpawner.CreateAbstractObjectSafe(args, TargetPos.Room, coord);
-                        TargetPos.Room.AddEntity(obj);
-                        if (TargetPos.Room.realizedRoom != null)
-                        {
-                            obj.RealizeInRoom();
-                            obj.realizedObject.firstChunk.HardSetPosition(TargetPos.Pos);
-                        }
+                        ObjectSpawner.AddToRoom(obj);
                     }
                     catch (Exception e)
                     {
