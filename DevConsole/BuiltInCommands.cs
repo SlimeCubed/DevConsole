@@ -1302,8 +1302,8 @@ namespace DevConsole
 
                         if(args[0] == "list")
                         {
-                            var sandboxIDs = (MultiplayerUnlocks.SandboxUnlockID[])Enum.GetValues(typeof(MultiplayerUnlocks.SandboxUnlockID));
-                            var levelIDs = (MultiplayerUnlocks.LevelUnlockID[])Enum.GetValues(typeof(MultiplayerUnlocks.LevelUnlockID));
+                            var sandboxIDs = MultiplayerUnlocks.SandboxUnlockID.values.entries.Select(str => new MultiplayerUnlocks.SandboxUnlockID(str));
+                            var levelIDs = MultiplayerUnlocks.LevelUnlockID.values.entries.Select(str => new MultiplayerUnlocks.LevelUnlockID(str));
                             WriteLine($"Sandbox tokens (unlocked): {string.Join(", ", sandboxIDs.Where(miscProg.GetTokenCollected).Select(id => id.ToString()).ToArray())}");
                             WriteLine($"Sandbox tokens (locked): {string.Join(", ", sandboxIDs.Where(id => !miscProg.GetTokenCollected(id)).Select(id => id.ToString()).ToArray())}", Color.Lerp(DefaultColor, Color.grey, 0.4f));
                             WriteLine($"Level tokens (unlocked): {string.Join(", ", levelIDs.Where(miscProg.GetTokenCollected).Select(id => id.ToString()).ToArray())}");
@@ -1378,8 +1378,8 @@ namespace DevConsole
                                         PlayerProgression.MiscProgressionData miscProg = RW.progression.miscProgressionData;
                                         bool onlyUnlocked = args[0] == "take";
 
-                                        var sids = (MultiplayerUnlocks.SandboxUnlockID[])Enum.GetValues(typeof(MultiplayerUnlocks.SandboxUnlockID));
-                                        var lids = (MultiplayerUnlocks.LevelUnlockID[])Enum.GetValues(typeof(MultiplayerUnlocks.LevelUnlockID));
+                                        var sids = MultiplayerUnlocks.SandboxUnlockID.values.entries.Select(str => new MultiplayerUnlocks.SandboxUnlockID(str));
+                                        var lids = MultiplayerUnlocks.LevelUnlockID.values.entries.Select(str => new MultiplayerUnlocks.LevelUnlockID(str));
 
                                         return sids.Where(sid => miscProg.GetTokenCollected(sid) == onlyUnlocked).Select(sid => sid.ToString())
                                             .Concat(lids.Where(lid => miscProg.GetTokenCollected(lid) == onlyUnlocked).Select(lid => lid.ToString()));
