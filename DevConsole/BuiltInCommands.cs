@@ -1120,9 +1120,11 @@ namespace DevConsole
                         {
                             noclip = true;
                             bool roomWater = self.room.water;
+                            float waterLevel = self.room.floatWaterLevel;
                             try
                             {
                                 self.room.water = true;
+                                self.room.floatWaterLevel = 100000f;
                                 orig(self, eu);
                                 self.airInLungs = 1f;
 
@@ -1141,6 +1143,7 @@ namespace DevConsole
                             {
                                 noclip = false;
                                 self.room.water = roomWater;
+                                self.room.floatWaterLevel = waterLevel;
                             }
                         }
 
