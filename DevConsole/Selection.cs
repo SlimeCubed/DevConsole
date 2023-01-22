@@ -37,16 +37,16 @@ namespace DevConsole
             {
                 // Find a base group to select from
                 // If only a filter is specified, filter from all
+                int startInd = 1;
                 var objs = FindBaseAbstractObjects(game, args[0]);
-
-                if(objs == null)
+                if (objs == null)
                 {
-                    WriteLine($"Invalid selection base: {args[0]}");
-                    return Enumerable.Empty<AbstractPhysicalObject>();
+                    objs = FindBaseAbstractObjects(game, "all");
+                    startInd = 0;
                 }
 
                 // Filter based on the args that come after
-                for (int i = 1; i < args.Length; i++)
+                for (int i = startInd; i < args.Length; i++)
                 {
                     var filter = GetAbstractObjectFilter(game, args[i]);
                     if (filter == null)
@@ -237,19 +237,21 @@ namespace DevConsole
 
                     try
                     {
-                        var testType = (ObjectType)Enum.Parse(typeof(ObjectType), arg, true);
-                        return (game, objs) => objs.Where(obj => Equate((int)obj.type, (int)testType));
+                        var testType = (ObjectType)ExtEnumBase.Parse(typeof(ObjectType), arg, true);
+                        if((int)testType != -1)
+                            return (game, objs) => objs.Where(obj => Equate((int)obj.type, (int)testType));
                     }
                     catch { }
 
                     try
                     {
-                        var testType = (CreatureType)Enum.Parse(typeof(CreatureType), arg, true);
-                        return (game, objs) => objs.Where(obj =>
-                        {
-                            if (obj is not AbstractCreature crit) return IsInverted(); // Do not limit to creatures when inverted
-                            return Equate((int)crit.creatureTemplate.type, (int)testType);
-                        });
+                        var testType = (CreatureType)ExtEnumBase.Parse(typeof(CreatureType), arg, true);
+                        if((int)testType != -1)
+                            return (game, objs) => objs.Where(obj =>
+                            {
+                                if (obj is not AbstractCreature crit) return IsInverted(); // Do not limit to creatures when inverted
+                                return Equate((int)crit.creatureTemplate.type, (int)testType);
+                            });
                     }
                     catch { }
 
