@@ -1292,6 +1292,43 @@ namespace DevConsole
                     .Register();
             }
 
+            // Recreate a destroyed player
+            new CommandBuilder("respawn")
+                .RunGame((game, args) =>
+                {
+                    RoomPos pos = TargetPos;
+
+                    int playerNumber = 0;
+                    if (args.Length > 0 && !int.TryParse(args[0], out playerNumber)
+                        || playerNumber >= game.Players.Count)
+                    {
+                        WriteLine("Invalid player number!");
+                        return;
+                    }
+
+                    AbstractCreature player = game.Players[playerNumber];
+
+                    // Destroy and re-create the player
+                    player.realizedObject?.Destroy();
+                    player.Abstractize(pos.Room.GetWorldCoordinate(pos.Pos));
+                    if(player.state is PlayerState state)
+                    {
+                        state.alive = true;
+                        state.permaDead = false;
+                        state.permanentDamageTracking = 0f;
+                    }
+                    player.RealizeInRoom();
+
+                    // Disable game-over prompt
+                    foreach(var cam in game.cameras)
+                    {
+                        if (cam.hud.textPrompt != null)
+                            cam.hud.textPrompt.gameOverMode = false;
+                    }
+                })
+                .Help("respawn [player?]")
+                .Register();
+
             // Locks or unlocks sandbox tokens
             new CommandBuilder("unlock")
                 .Run(args =>
