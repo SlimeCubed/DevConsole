@@ -1243,13 +1243,18 @@ namespace DevConsole
 
                         try
                         {
-                            if (args[0] is not "nothing" and not "death" and not "everything")
+                            string arg = hooks.Count > 0 ? "nothing" : "everything";
+                            if (args.Length > 0)
+                                arg = args[0];
+                            arg = arg.ToLowerInvariant();
+
+                            if (arg is not "nothing" and not "death" and not "everything")
                             {
-                                WriteLine("Failed to toggle invulnerability!");
+                                WriteLine("Unknown invuln type!");
                                 return;
                             }
 
-                            if (args[0] == "nothing")
+                            if (arg == "nothing")
                             {
                                 if (hooks.Count > 0)
                                 {
@@ -1265,13 +1270,13 @@ namespace DevConsole
                                 if (hooks.Count == 0)
                                     hooks.Add(new Hook(typeof(Player).GetMethod("Die"), (On.Player.hook_Die)StopDeath));
 
-                                if (hooks.Count < 3 && args[0] == "everything")
+                                if (hooks.Count < 3 && arg == "everything")
                                 {
                                     hooks.Add(new Hook(typeof(Creature).GetMethod("Violence"), (On.Creature.hook_Violence)StopViolence));
                                     hooks.Add(new Hook(typeof(Player).GetMethod("Update"), (On.Player.hook_Update)StopHarm));
                                 }
 
-                                WriteLine("Enabled invulnerability" + (args[0] == "death" ? " against death." : " against all harm."));
+                                WriteLine("Enabled invulnerability" + (arg == "death" ? " against death." : " against all harm."));
                             }
                         }
                         catch(Exception e)

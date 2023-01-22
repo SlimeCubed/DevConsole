@@ -1037,7 +1037,7 @@ namespace DevConsole
                 return StaticWorld.GetCreatureTemplate(WorldLoader.CreatureTypeFromString(text));
             }
 
-            // Try finding a method calld FromString
+            // Try finding a method called FromString
             var fromString = toType.GetMethod("FromString", BindingFlags.Static, null, fromStringTypes, null);
             if (fromString != null)
             {
