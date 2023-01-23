@@ -20,7 +20,7 @@ namespace DevConsole
     {
         private static readonly Dictionary<string, Type> typeMap = new(StringComparer.OrdinalIgnoreCase);
         private static readonly Dictionary<Type, ConstructorInfo[]> typeCtors = new();
-        private static readonly Regex entityID = new(@"^ID\.\d+\.\d+(\.\d+)?$");
+        private static readonly Regex entityID = new(@"^ID\.-?\d+\.-?\d+(\.-?\d+)?$");
 
         private static readonly HashSet<string> dllBlacklist = new()
         {
@@ -826,7 +826,7 @@ namespace DevConsole
                     {
                         var opType = op.ParameterType;
 
-                        yield return $"{DevConsole.Autocomplete.hintPrefix}{op.Name}: {opType.Name}";
+                        yield return $"{AC.hintPrefix}{op.Name}: {opType.Name}";
 
                         if (opType == typeof(bool))
                         {
