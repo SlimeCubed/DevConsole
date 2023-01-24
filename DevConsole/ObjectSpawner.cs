@@ -324,7 +324,7 @@ namespace DevConsole
                         bool explosive = args.Contains("explosive", StringComparer.OrdinalIgnoreCase);
                         bool electric = args.Contains("electric", StringComparer.OrdinalIgnoreCase);
 
-                        if (!tags.Contains(args[0], StringComparer.OrdinalIgnoreCase))
+                        if (args.Length > 0 && !tags.Contains(args[0], StringComparer.OrdinalIgnoreCase))
                         {
                             if (electric)
                             {
