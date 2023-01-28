@@ -381,7 +381,7 @@ namespace DevConsole
 
                         WriteLine($"Could not find the specified method overload: {methodName}");
                     })
-                    .Help("invoke [method] [arg1?] [arg2?] ...")
+                    .Help("invoke [method] [args...]")
                     .Register();
             }
 

@@ -443,11 +443,14 @@ namespace DevConsole
                 ));
 
                 RegisterSpawner(MSCObjType.Spearmasterpearl, new SimpleSpawnerInfo(
-                    (_, args) => null,
+                    AutoCompleteTags("broadcastTagged"),
 
                     (_, args, id, room, pos) =>
                     {
-                        return new MoreSlugcats.SpearMasterPearl.AbstractSpearMasterPearl(room.world, null, pos, id, -1, -1, null);
+                        return new MoreSlugcats.SpearMasterPearl.AbstractSpearMasterPearl(room.world, null, pos, id, -1, -1, null)
+                        {
+                            broadcastTagged = args.Contains("broadcastTagged", StringComparer.OrdinalIgnoreCase)
+                        };
                     }
                 ));
 
