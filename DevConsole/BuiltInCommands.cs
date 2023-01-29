@@ -57,15 +57,63 @@ namespace DevConsole
                 .Run(args =>
                 {
                     var rw = UnityEngine.Object.FindObjectOfType<RainWorld>();
-                    if (args.Length > 0 && args[0].Equals("force", StringComparison.OrdinalIgnoreCase) || rw.processManager.upcomingProcess == ProcessManager.ProcessID.MainMenu)
-                        rw.processManager.RequestMainProcessSwitch(ProcessManager.ProcessID.MainMenu, 0f);
+                    var man = rw.processManager;
+                    if (args.Length > 0 && args[0].Equals("force", StringComparison.OrdinalIgnoreCase) || man.upcomingProcess == ProcessManager.ProcessID.MainMenu)
+                    {
+                        man.RequestMainProcessSwitch(ProcessManager.ProcessID.MainMenu);
+                        man.PreSwitchMainProcess(ProcessManager.ProcessID.MainMenu);
+                        man.finalizeModsStep = 0;
+                        man.finalizeModsDelay = 0;
+                        man.modFinalizationDone = false;
+                        man.processAfterModFinalization = ProcessManager.ProcessID.MainMenu;
+                        man.upcomingProcess = null;
+                    }
                     else
-                        rw.processManager.RequestMainProcessSwitch(ProcessManager.ProcessID.MainMenu);
+                        man.RequestMainProcessSwitch(ProcessManager.ProcessID.MainMenu);
                 })
                 .AutoComplete(new string[][] {
                     new string[] { "request", "force" }
                 })
                 .Help("exit [mode: request]")
+                .Register();
+
+            new CommandBuilder("dream")
+                .RunGame((game, args) =>
+                {
+                    if (args.Length == 0)
+                    {
+                        WriteLine("No dream ID specified!");
+                        return;
+                    }
+
+                    if (!game.IsStorySession)
+                    {
+                        WriteLine("Must be a story game!");
+                        return;
+                    }
+
+                    var id = new DreamsState.DreamID(args[0]);
+                    if((int)id == -1)
+                    {
+                        WriteLine("Unknown dream ID!");
+                        return;
+                    }
+
+                    On.Menu.DreamScreen.GetDataFromGame += (orig, self, id, data) =>
+                    {
+                        orig(self, id, data);
+
+                        WriteLine($"ID: {id}");
+                    };
+
+                    game.GetStorySession.saveState.dreamsState ??= new DreamsState();
+                    game.GetStorySession.saveState.dreamsState.eventDream = id;
+                    game.GetStorySession.saveState.dreamsState.upcomingDream = id;
+
+                    game.manager.RequestMainProcessSwitch(ProcessManager.ProcessID.Dream);
+                })
+                .AutoComplete(args => args.Length == 0 ? DreamsState.DreamID.values.entries : null)
+                .Help("dream [ID]")
                 .Register();
 
             // Throws an exception
