@@ -52,7 +52,7 @@ namespace DevConsole
                     if (filter == null)
                     {
                         WriteLine($"Unknown selection filter: {args[i]}");
-                        return null;
+                        return Enumerable.Empty<AbstractPhysicalObject>();
                     }
                     else
                     {

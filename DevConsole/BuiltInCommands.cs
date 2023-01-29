@@ -1367,11 +1367,16 @@ namespace DevConsole
                     }
                     player.RealizeInRoom();
 
-                    // Disable game-over prompt
+                    // Reset HUD
                     foreach(var cam in game.cameras)
                     {
-                        if (cam.hud.textPrompt != null)
-                            cam.hud.textPrompt.gameOverMode = false;
+                        if (cam.hud != null && (cam.hud.owner as Player)?.abstractCreature == player)
+                        {
+                            if (cam.hud.textPrompt != null)
+                                cam.hud.textPrompt.gameOverMode = false;
+
+                            cam.hud.owner = player.realizedObject as Player;
+                        }
                     }
                 })
                 .Help("respawn [player?]")
