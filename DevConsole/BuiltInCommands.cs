@@ -99,13 +99,6 @@ namespace DevConsole
                         return;
                     }
 
-                    On.Menu.DreamScreen.GetDataFromGame += (orig, self, id, data) =>
-                    {
-                        orig(self, id, data);
-
-                        WriteLine($"ID: {id}");
-                    };
-
                     game.GetStorySession.saveState.dreamsState ??= new DreamsState();
                     game.GetStorySession.saveState.dreamsState.eventDream = id;
                     game.GetStorySession.saveState.dreamsState.upcomingDream = id;
