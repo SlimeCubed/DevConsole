@@ -11,6 +11,7 @@ namespace DevConsole
         {
             public static Configurable<bool> autopause;
             public static Configurable<string> font;
+            public static Configurable<KeyCode> keybind;
 
             public ConsoleConfig()
             {
@@ -21,6 +22,7 @@ namespace DevConsole
                         new AcceptFonts("font", "DisplayFont")
                     )
                 );
+                keybind = config.Bind("config", KeyCode.BackQuote, new ConfigurableInfo("The key that, when pressed, opens the console."));
             }
 
             public override void Initialize()
@@ -58,7 +60,19 @@ namespace DevConsole
                         verticalAlignment = OpLabel.LabelVAlignment.Center,
                         description = font.info.description
                     },
-                    new OpComboBox(font, listPos + new Vector2(2f, 0f), 100f)
+                    new OpComboBox(font, listPos + new Vector2(2f, 0f), 140f)
+                );
+                listPos.y -= 39f;
+
+                // Keybind
+                Tabs[0].AddItems(
+                    new OpLabel(listPos - new Vector2(102f, 0f), new Vector2(100f, 34f), "Keybind")
+                    {
+                        alignment = FLabelAlignment.Right,
+                        verticalAlignment = OpLabel.LabelVAlignment.Center,
+                        description = font.info.description
+                    },
+                    new OpKeyBinder(keybind, listPos + new Vector2(4f, 2f), new Vector2(146f, 30f), false)
                 );
                 listPos.y -= 29f;
             }

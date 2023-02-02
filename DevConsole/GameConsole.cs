@@ -372,7 +372,7 @@ namespace DevConsole
             bool skipInput = false;
 
             // Open and close the console
-            if (!typing && (Input.GetKeyDown(KeyCode.BackQuote) || forceOpen != null))
+            if (!typing && (Input.GetKeyDown(ConsoleConfig.keybind.Value) || forceOpen != null))
             {
                 typing = true;
                 container.isVisible = true;
@@ -380,7 +380,7 @@ namespace DevConsole
 
                 PauseGame(ConsoleConfig.autopause.Value || (forceOpen?.pause ?? false));
             }
-            else if (typing && (Input.GetKeyUp(KeyCode.Escape) || Input.GetKeyDown(KeyCode.BackQuote)))
+            else if (typing && (Input.GetKeyUp(KeyCode.Escape) || Input.GetKeyDown(ConsoleConfig.keybind.Value)))
             {
                 forceOpen = null;
                 typing = false;
