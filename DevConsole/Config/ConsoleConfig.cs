@@ -22,7 +22,7 @@ namespace DevConsole
                         new AcceptFonts("font", "DisplayFont")
                     )
                 );
-                keybind = config.Bind("config", KeyCode.BackQuote, new ConfigurableInfo("The key that, when pressed, opens the console."));
+                keybind = config.Bind("keybind", KeyCode.BackQuote, new ConfigurableInfo("The key that, when pressed, opens the console."));
             }
 
             public override void Initialize()
