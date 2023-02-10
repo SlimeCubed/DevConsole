@@ -513,6 +513,7 @@ namespace DevConsole
                     CritType.Fly,
                     CritType.GarbageWorm,
                     CritType.GreenLizard,
+                    CritType.Hazer,
                     CritType.JetFish,
                     CritType.KingVulture,
                     CritType.LanternMouse,
