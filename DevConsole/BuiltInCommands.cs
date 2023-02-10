@@ -1120,29 +1120,13 @@ namespace DevConsole
                     }
 
                     var abstrobjs = Selection.SelectAbstractObjects(game, args.Length > 1 ? args[1] : null);
-                    var logs = new DedupCache<string>();
 
                     foreach (var abstrobj in abstrobjs)
                     {
-                        if (abstrobj.type != AbstractPhysicalObject.AbstractObjectType.Creature)
-                            continue;
-
-                        if (abstrobj.realizedObject is not Creature c)
+                        if (abstrobj.realizedObject is Creature c)
                         {
-                            logs.Add("Failed to stun a non-realized creature.");
-                            continue;
+                            c.Stun(duration);
                         }
-
-                        if (c.room.abstractRoom.index != TargetPos.Room?.index)
-                        {
-                            logs.Add("Failed to stun a creature in another room.");
-                            continue;
-                        }
-
-                        c.Stun(duration);
-
-                        foreach (var line in logs.AsStrings())
-                            WriteLine(line);
                     }
                 })
                 .Help("stun [duration] [selector?]")
