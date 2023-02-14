@@ -1205,27 +1205,54 @@ namespace DevConsole
             new CommandBuilder("karma")
                 .RunGame((game, args) =>
                 {
-                    try
+                    if (!game.IsStorySession)
                     {
-                        if (args.Length == 0) WriteLine("Karma: " + game.GetStorySession?.saveState?.deathPersistentSaveData.karma.ToString() ?? "N/A");
-                        else
-                        {
-                            game.GetStorySession.saveState.deathPersistentSaveData.karma = int.Parse(args[0]);
+                        WriteLine("Karma may not be changed outside of story mode!");
+                        return;
+                    }
 
-                            for (int i = 0; i < game.cameras.Length; i++)
-                            {
-                                HUD.KarmaMeter karmaMeter = game.cameras[i].hud.karmaMeter;
-                                karmaMeter?.UpdateGraphic();
-                            }
+                    var dpsd = game.GetStorySession.saveState.deathPersistentSaveData;
+
+                    if (args.Length == 0)
+                    {
+                        WriteLine("Karma: " + dpsd?.karma.ToString() ?? "N/A");
+                    }
+                    else if (args[0].Equals("reinforce", StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        dpsd.reinforcedKarma = !dpsd.reinforcedKarma;
+
+                        if (dpsd.reinforcedKarma)
+                            WriteLine("Granted reinforced karma.");
+                        else
+                            WriteLine("Revoked reinforced karma.");
+
+                        for (int i = 0; i < game.cameras.Length; i++)
+                        {
+                            HUD.KarmaMeter karmaMeter = game.cameras[i].hud.karmaMeter;
+                            karmaMeter.reinforceAnimation = 0;
                         }
                     }
-                    catch(Exception e)
+                    else if (int.TryParse(args[0], out int karma))
                     {
-                        WriteLine("Failed to set karma! See console log for more info.");
-                        Debug.Log("karma failed: " + e);
+                        dpsd.karma = karma;
+
+                        for (int i = 0; i < game.cameras.Length; i++)
+                        {
+                            HUD.KarmaMeter karmaMeter = game.cameras[i].hud.karmaMeter;
+                            karmaMeter?.UpdateGraphic();
+                        }
+
+                        WriteLine($"Set karma: {karma}");
+                    }
+                    else
+                    {
+                        WriteLine($"Karma must be an integer!");
                     }
                 })
                 .Help("karma [value?]")
+                .AutoComplete(new string[][] {
+                    Enumerable.Range(0,10).Select(i => i.ToString()).Concat(new string[] { "reinforce" }).ToArray()
+                })
                 .Register();
 
             // Changes the player's karma cap
