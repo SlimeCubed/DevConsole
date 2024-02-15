@@ -19,6 +19,7 @@ namespace DevConsole
         public const string MOD_ID = "slime-cubed.devconsole";
         public const string MOD_VERSION = "1.3.0";
         private static bool initialized = false;
+        private static ConsoleConfig config;
 
         public void Awake()
         {
@@ -26,13 +27,13 @@ namespace DevConsole
             {
                 orig(self);
 
+                MachineConnector.SetRegisteredOI(MOD_ID, config ??= new ConsoleConfig());
+
                 if (initialized) return;
                 initialized = true;
 
-                Logger.LogWarning("Initialized");
                 try
                 {
-                    MachineConnector.SetRegisteredOI(MOD_ID, new ConsoleConfig());
                     GameConsole.Apply(this);
                 }
                 catch(Exception e)
@@ -53,6 +54,28 @@ namespace DevConsole
                 orig(self);
 
                 ObjectSpawner.RegisterSafeSpawners();
+
+                if(ConsoleConfig.scanOnStartup.Value)
+                {
+                    ObjectSpawner.ScanTypes();
+                }
+
+                // Set default command position
+                string defaultPos = ConsoleConfig.defaultPos.Value switch
+                {
+                    "player" => "<default>",
+                    "cursor" => "<cursor>",
+                    "camera" => "<camera>",
+                    _ => "<default>"
+                };
+
+                if (defaultPos != "<default>")
+                {
+                    InternalPositioning.GetDefaultPos = game =>
+                    {
+                        return Positioning.TryGetPosition(game, defaultPos, out var pos) ? pos : InternalPositioning.Pos;
+                    };
+                }
             };
         }
     }

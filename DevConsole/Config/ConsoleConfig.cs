@@ -12,17 +12,40 @@ namespace DevConsole
             public static Configurable<bool> autopause;
             public static Configurable<string> font;
             public static Configurable<KeyCode> keybind;
+            public static Configurable<bool> scanOnStartup;
+            public static Configurable<string> defaultPos;
 
             public ConsoleConfig()
             {
-                autopause = config.Bind("autopause", true, new ConfigurableInfo("Pause the game while the console is open."));
-                font = config.Bind("font", "devconsolas",
-                    new ConfigurableInfo(
-                        "The default font to use in the console. Some don't look good.",
-                        new AcceptFonts("font", "DisplayFont")
-                    )
-                );
-                keybind = config.Bind("keybind", KeyCode.BackQuote, new ConfigurableInfo("The key that, when pressed, opens the console."));
+                autopause = config.Bind(
+                    key: "autopause",
+                    defaultValue: true,
+                    info: new ConfigurableInfo("Pause the game while the console is open."));
+                
+                font = config.Bind(
+                    key: "font",
+                    defaultValue: "devconsolas",
+                    info: new ConfigurableInfo(
+                        description: "The default font to use in the console. Some don't look good.",
+                        acceptable: new AcceptFonts("font", "DisplayFont")
+                    ));
+                
+                keybind = config.Bind(
+                    key: "keybind",
+                    defaultValue: KeyCode.BackQuote,
+                    info: new ConfigurableInfo("The key that, when pressed, opens the console."));
+
+                scanOnStartup = config.Bind(
+                    key: "scan_on_startup",
+                    defaultValue: true,
+                    info: new ConfigurableInfo("Scan for spawnable objects on startup."));
+
+                defaultPos = config.Bind(
+                    key: "default_pos",
+                    defaultValue: "player",
+                    info: new ConfigurableInfo(
+                        description: "The position that commands should affect by default.",
+                        acceptable: new ConfigAcceptableList<string>("player", "cursor", "camera")));
             }
 
             public override void Initialize()
@@ -73,6 +96,30 @@ namespace DevConsole
                         description = font.info.description
                     },
                     new OpKeyBinder(keybind, listPos + new Vector2(4f, 2f), new Vector2(146f, 30f), false)
+                );
+                listPos.y -= 29f;
+
+                // Scan on startup
+                Tabs[0].AddItems(
+                    new OpLabel(listPos - new Vector2(102f, 0f), new Vector2(100f, 24f), "Scan on load")
+                    {
+                        alignment = FLabelAlignment.Right,
+                        verticalAlignment = OpLabel.LabelVAlignment.Center,
+                        description = scanOnStartup.info.description
+                    },
+                    new OpCheckBox(scanOnStartup, listPos + new Vector2(2f, 0f))
+                );
+                listPos.y -= 29f;
+
+                // Default position
+                Tabs[0].AddItems(
+                    new OpLabel(listPos - new Vector2(102f, 0f), new Vector2(100f, 24f), "Default position")
+                    {
+                        alignment = FLabelAlignment.Right,
+                        verticalAlignment = OpLabel.LabelVAlignment.Center,
+                        description = defaultPos.info.description
+                    },
+                    new OpComboBox(defaultPos, listPos + new Vector2(2f, 0f), 140f)
                 );
                 listPos.y -= 29f;
             }
