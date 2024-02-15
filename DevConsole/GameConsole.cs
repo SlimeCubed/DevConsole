@@ -79,11 +79,11 @@ namespace DevConsole
                             catch { return null; }
                         })
                         .Where(help => help != null)
+                        .OrderBy(help => help)
                         .Skip((maxLines - 1) * page)
                         .Take(maxLines - 1)
                         .ToArray();
 
-                    Array.Sort(helps);
                     if (helps.Length > 0)
                     {
                         WriteLine($"Showing help for page {page + 1}. Run \"wiki\" for more detailed descriptions.", new Color(0.5f, 1f, 0.75f));
