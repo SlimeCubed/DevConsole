@@ -199,7 +199,7 @@ namespace DevConsole
             }
 
 
-            static IEnumerable<AbstractPhysicalObject> NullFilter(RainWorldGame game, IEnumerable<AbstractPhysicalObject> objs) => objs;
+            static IEnumerable<AbstractPhysicalObject> NullFilter(RainWorldGame game, IEnumerable<AbstractPhysicalObject> objs) => Enumerable.Empty<AbstractPhysicalObject>();
 
             // Here's where the real logic happens
             // Generate a delegate that will filter using the specified type, operator, and argument
