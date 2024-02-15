@@ -1340,7 +1340,7 @@ namespace DevConsole
                             Debug.Log("invlun failed: " + e);
                         }
                     })
-                    .Help("invuln [to]")
+                    .Help("invuln [to?]")
                     .AutoComplete(new string[][] {
                         new string[] { "everything", "death", "nothing" }
                     })
@@ -1767,6 +1767,26 @@ namespace DevConsole
                         RunCommandSilent(GetNestedCommand(args, 0));
                 })
                 .Help("silence [command]+")
+                .Register();
+
+            // Runs a command a number of times
+            new CommandBuilder("repeat")
+                .Run(args =>
+                {
+                    if (args.Length < 1)
+                        WriteLine("");
+                    else if (args.Length < 2)
+                        WriteLine("No command given to repeat!");
+                    else if (!int.TryParse(args[0], out int count) || count < 0)
+                        WriteLine("Invalid repeat amount!");
+                    else
+                    {
+                        string command = GetNestedCommand(args, 1);
+                        for (int i = 0; i < count; i++)
+                            RunCommand(command);
+                    }
+                })
+                .Help("repeat [count] [command]+")
                 .Register();
 
             // Change the console's font
