@@ -60,6 +60,8 @@ namespace DevConsole
                     ObjectSpawner.ScanTypes();
                 }
 
+                GameConsole.LoadCommandHistory();
+
                 // Set default command position
                 string defaultPos = ConsoleConfig.defaultPos.Value switch
                 {

@@ -26,6 +26,7 @@ namespace DevConsole
         private const int maxHistory = 100;    // Maximum number of commands to store in history before clearing them
         private const int maxLines = (consoleHeight - 2 * consoleMargin) / lineHeight - 1; // Number of lines of output that can fit on the screen
         private const string startupCommandsFile = "devConsoleStartup.txt";                // File path to a list of commands to run on init
+        private const string commandHistoryFile = "devConsoleHistory.txt";                 // File path to a list of recent commands
 
         private static readonly Color backColor = new Color(0f, 0f, 0f, 0.75f);
         private static readonly Color defaultTextColor = new Color(1f, 1f, 1f);
@@ -585,12 +586,40 @@ namespace DevConsole
             Aliases.SetAlias("slug", "echo \"jjjjjjjjjjjjjjjjjjjjg1                                     .wjjjjjjjjjjjjjjjjjjjjjjjjj\" \"jir.            1lBF:                                     1ljjh,            ,Lljjjjj\" \"ji;,            .7Bjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj2:.           .1ljjjjj\" \"jl1.                .zBjjjjjj4:                     ;IBjR:.                :Mjjjj\" \"jjjjjjE;.                                                                  .7Bjjjjjjjjj\" \"  1ljjjjjj81                                                             ,sBd;.     \" \"      .Cjjjf;.     .wjjlc.                          ,4BP:.     .YjjjjjjQ;.      \" \" .:JBjjjjH:..1ljjjjjjjjjjjj0;.               .@jjjjjjjjjjjR;,.:HjjjjjQ;,.     \" \" ,Wjf;.      ,rBjjjjjjjjjjj0;.               .7BjjjjjjjjjjM:      .7lD1.     \" \" ,7lW,           .YB@.                         .1Bjlc.           .cgh;,     \" \" ,YlW:.                         ,rBjjjjjjD:.                         ,LlM;,     \" \" ,YlW:.                                                                 ,VBi1.     \" \" ,YlW:.                                                                 ,VBi1.     \" \" ,YlW:.                                                                 ,VBi1.     \" \" ,wM;.                                                                 .:hM;,      \" \" ,YlM;.                                                                 ,7lM;,     \"");
             
             RunStartupCommands();
+            LoadCommandHistory();
+
+            Application.quitting += SaveCommandHistory;
         }
 
         private void RunStartupCommands()
         {
             RunFile(Path.Combine(Custom.LegacyRootFolderDirectory(), startupCommandsFile));
             RunFile(Path.Combine(Custom.RootFolderDirectory(), startupCommandsFile));
+        }
+
+        internal static void SaveCommandHistory()
+        {
+            if (!instance) return;
+
+            try
+            {
+                if (ConsoleConfig.saveHistory.Value)
+                    File.WriteAllLines(Path.Combine(Custom.RootFolderDirectory(), commandHistoryFile), instance.history);
+            }
+            catch { }
+        }
+
+        internal static void LoadCommandHistory()
+        {
+            if (!instance) return;
+
+            instance.history.Clear();
+            try
+            {
+                if(ConsoleConfig.saveHistory.Value)
+                instance.history.AddRange(File.ReadAllLines(Path.Combine(Custom.RootFolderDirectory(), commandHistoryFile)));
+            }
+            catch { }
         }
 
         private void RunFile(string path)

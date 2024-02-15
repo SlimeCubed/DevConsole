@@ -14,6 +14,7 @@ namespace DevConsole
             public static Configurable<KeyCode> keybind;
             public static Configurable<bool> scanOnStartup;
             public static Configurable<string> defaultPos;
+            public static Configurable<bool> saveHistory;
 
             public ConsoleConfig()
             {
@@ -46,6 +47,11 @@ namespace DevConsole
                     info: new ConfigurableInfo(
                         description: "The position that commands should affect by default.",
                         acceptable: new ConfigAcceptableList<string>("player", "cursor", "camera")));
+
+                saveHistory = config.Bind(
+                    key: "save_history",
+                    defaultValue: true,
+                    info: new ConfigurableInfo("Save command history between sessions."));
             }
 
             public override void Initialize()
@@ -108,6 +114,18 @@ namespace DevConsole
                         description = scanOnStartup.info.description
                     },
                     new OpCheckBox(scanOnStartup, listPos + new Vector2(2f, 0f))
+                );
+                listPos.y -= 29f;
+
+                // Save command history
+                Tabs[0].AddItems(
+                    new OpLabel(listPos - new Vector2(102f, 0f), new Vector2(100f, 24f), "Save history")
+                    {
+                        alignment = FLabelAlignment.Right,
+                        verticalAlignment = OpLabel.LabelVAlignment.Center,
+                        description = saveHistory.info.description
+                    },
+                    new OpCheckBox(saveHistory, listPos + new Vector2(2f, 0f))
                 );
                 listPos.y -= 29f;
 
