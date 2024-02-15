@@ -589,9 +589,15 @@ namespace DevConsole
 
         private void RunStartupCommands()
         {
+            RunFile(Path.Combine(Custom.LegacyRootFolderDirectory(), startupCommandsFile));
+            RunFile(Path.Combine(Custom.RootFolderDirectory(), startupCommandsFile));
+        }
+
+        private void RunFile(string path)
+        {
             try
             {
-                string[] lines = File.ReadAllLines(Path.Combine(Custom.RootFolderDirectory(), startupCommandsFile.Replace('\\', Path.DirectorySeparatorChar)));
+                string[] lines = File.ReadAllLines(path);
                 foreach (var line in lines)
                 {
                     if (string.IsNullOrEmpty(line)) continue;
@@ -599,7 +605,7 @@ namespace DevConsole
                     RunCommand(line);
                 }
             }
-            catch {}
+            catch { }
         }
 
         private void LateUpdate()
