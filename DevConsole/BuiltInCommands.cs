@@ -1270,6 +1270,9 @@ namespace DevConsole
                     }
                 })
                 .Help("karma_cap [value?]")
+                .AutoComplete(new string[][] {
+                    new string[] { "4", "6", "7", "8", "9" }
+                })
                 .Register();
 
             // Makes the player mostly invulnerable
