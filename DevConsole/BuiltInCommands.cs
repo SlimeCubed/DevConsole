@@ -988,6 +988,70 @@ namespace DevConsole
                 .Help("kill [selector?]")
                 .Register();
 
+            // Set the health of all selected objects
+            new CommandBuilder("health")
+                .RunGame((game, args) =>
+                {
+                    if (args.Length == 0)
+                    {
+                        WriteLine("No selector specified!");
+                        return;
+                    }
+
+                    var abstrobjs = Selection.SelectAbstractObjects(game, args[0])
+                        .Where(obj => obj is AbstractCreature crit && crit.state is HealthState);
+
+                    if(!abstrobjs.Any())
+                    {
+                        WriteLine("Selector didn't match any creatures with health!");
+                        return;
+                    }
+
+                    float? setHealth = null;
+
+                    if (args.Length > 1)
+                    {
+                        if (float.TryParse(args[1], out float value))
+                        {
+                            setHealth = value;
+                        }
+                        else
+                        {
+                            WriteLine("Invalid health value!");
+                            return;
+                        }
+                    }
+
+                    foreach (var abstrobj in abstrobjs)
+                    {
+                        if (abstrobj is not AbstractCreature c
+                            || c.state is not HealthState healthState)
+                        {
+                            continue;
+                        }
+
+                        if (setHealth == null)
+                        {
+                            WriteLine($"{c.creatureTemplate.name} ({c.ID}): health = {healthState.health}, alive = {healthState.alive}");
+                        }
+                        else
+                        {
+                            if (setHealth.Value > 0f)
+                            {
+                                if(c.realizedCreature != null)
+                                {
+                                    c.realizedCreature.dead = false;
+                                }
+                                healthState.alive = true;
+                            }
+
+                            healthState.health = setHealth.Value;
+                        }
+                    }
+                })
+                .Help("health [selector] [value?]")
+                .Register();
+
             // Apply a force to all selected objects
             new CommandBuilder("move")
                 .RunGame((game, args) =>
