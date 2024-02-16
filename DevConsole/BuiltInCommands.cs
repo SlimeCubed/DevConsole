@@ -1295,7 +1295,11 @@ namespace DevConsole
                             self.airInLungs = 1f;
                             self.stun = 0;
                             self.rainDeath = 0f;
-                            self.AllGraspsLetGoOfThisObject(true);
+                            for (int i = self.grabbedBy.Count - 1; i >= 0; i--)
+                            {
+                                if (self.grabbedBy[i].grabber is not Player)
+                                    self.grabbedBy[i].grabber.ReleaseGrasp(self.grabbedBy[i].graspUsed);
+                            }
                             orig(self, eu);
                         }
 
