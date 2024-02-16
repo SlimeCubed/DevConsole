@@ -30,6 +30,7 @@ namespace DevConsole
 
         private static readonly Color backColor = new Color(0f, 0f, 0f, 0.75f);
         private static readonly Color defaultTextColor = new Color(1f, 1f, 1f);
+        private static readonly Vector2 caretSize = new Vector2(6f, 1f);
 
         private static GameConsole instance;        // The game's console instance
         private static List<IDetour> inputBlockers; // A list of detours that cause input to be ignored
@@ -40,7 +41,7 @@ namespace DevConsole
         private static List<QueuedLine> queuedLines = new List<QueuedLine>(); // Lines sent before init or from another thread
         private static ForceOpenArgs forceOpen;
 
-        private StringBuilder inputString = new StringBuilder();        // Stores the user's command line input
+        private InputLine inputLine = new InputLine();                  // Stores the user's command line input
         private readonly Queue<LineInfo> lines = new Queue<LineInfo>(); // Stores the most recent output lines added
         private readonly List<string> history = new List<string>();     // Stores the most recent commands so they may be traversed
         private int indexInHistory;        // Which entry in history the user is viewing, or -1 if this command was written from scratch
@@ -400,95 +401,68 @@ namespace DevConsole
                 else
                     input = Input.inputString;
 
-                bool inputChanged = false;
-                foreach (var c in input)
+                bool inputChanged = input.Length > 0;
+                bool control = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+
+                if(input != "")
+                    inputLine.Add(input);
+
+                // Scroll through history
+                if (control && history.Count > 0)
                 {
-                    inputChanged = true;
-                    switch (c)
+                    bool moved = false;
+                    if (Input.GetKeyDown(KeyCode.UpArrow))
                     {
-                        // Remove one character when backspace is pressed
-                        case '\b':
-                            if (inputString.Length == 0) break;
-                            inputString.Remove(inputString.Length - 1, 1);
-                            break;
+                        if (indexInHistory > 0)
+                            indexInHistory--;
+                        else
+                            indexInHistory = history.Count - 1;
+                        moved = true;
+                    }
+                    else if (Input.GetKeyDown(KeyCode.DownArrow))
+                    {
+                        indexInHistory = (indexInHistory + 1) % history.Count;
+                        moved = true;
+                    }
 
-                        // If Ctrl+Backspace is entered, delete a whole word
-                        case '\x7F':
-                            if (inputString.Length == 0) break;
-                            do inputString.Remove(inputString.Length - 1, 1);
-                            while (inputString.Length > 0 && !char.IsWhiteSpace(inputString[inputString.Length - 1]));
-                            break;
+                    if (moved)
+                    {
+                        if (indexInHistory >= history.Count)
+                            indexInHistory = history.Count - 1;
 
-                        // Submit a command when enter is pressed
-                        case '\r':
-                        case '\n':
-
-                            string command = inputString.ToString().Trim();
-
-                            // Add command to history
-                            if (history.Count >= maxHistory) history.RemoveAt(0);
-                            if (command != "")
-                                history.Add(command);
-                            indexInHistory = -1;
-
-                            // Execute
-                            SubmitCommand(command);
-                            inputString = new StringBuilder();
-
-                            break;
-
-                        // Otherwise, add to the current input
-                        default:
-                            inputString.Append(c);
-                            break;
+                        if (indexInHistory >= 0)
+                            inputLine.Replace(history[indexInHistory]);
+                        else
+                            inputLine.Clear();
+                        inputChanged = true;
                     }
                 }
 
-                bool allowACScroll = true;
-
-                if(Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl))
+                // Move cursor
+                if (Input.GetKeyDown(KeyCode.LeftArrow))
                 {
-                    allowACScroll = false;
-                    
-                    // Allow scrolling through history
-                    if (history.Count > 0)
-                    {
-                        bool moved = false;
-                        if (Input.GetKeyDown(KeyCode.UpArrow))
-                        {
-                            if (indexInHistory > 0)
-                                indexInHistory--;
-                            else
-                                indexInHistory = history.Count - 1;
-                            moved = true;
-                        }
-                        else if (Input.GetKeyDown(KeyCode.DownArrow))
-                        {
-                            indexInHistory = (indexInHistory + 1) % history.Count;
-                            moved = true;
-                        }
-
-                        if (moved)
-                        {
-                            if (indexInHistory >= history.Count)
-                                indexInHistory = history.Count - 1;
-
-                            if (indexInHistory >= 0)
-                                inputString = new StringBuilder(history[indexInHistory]);
-                            else
-                                inputString = new StringBuilder();
-                            inputChanged = true;
-                        }
-                    }
+                    caretFlash = 0f;
+                    if (control)
+                        inputLine.PrevWord();
+                    else
+                        inputLine.CursorIndex--;
+                }
+                if (Input.GetKeyDown(KeyCode.RightArrow))
+                {
+                    caretFlash = 0f;
+                    if (control)
+                        inputLine.NextWord();
+                    else
+                        inputLine.CursorIndex++;
                 }
 
                 if (inputChanged)
                 {
                     caretFlash = 0f;
-                    autocomplete.UpdateText(inputString.ToString());
+                    autocomplete.UpdateText(inputLine.Text);
                 }
 
-                autocomplete.Update(inputString, allowACScroll);
+                autocomplete.Update(inputLine, !control);
                 
                 // Disallow inputs for the rest of the frame
                 CaptureInput(true);
@@ -497,38 +471,59 @@ namespace DevConsole
             // Draw console
             if (container.isVisible)
             {
-                // Center console
-                container.x = Futile.screen.pixelWidth / 2 - consoleWidth / 2 + 0.1f;
-                container.y = Futile.screen.pixelHeight / 2 - consoleHeight / 2 + 0.1f;
-
-                // Position labels
-                int y = consoleMargin;
-                inputLabel.x = consoleMargin;
-                inputLabel.y = y;
-                string str = inputString.ToString();
-                inputLabel.text = " > " + str.Substring(0, Math.Min(str.Length, 1000));
-                y += lineHeight;
-
-                foreach (var line in lines.Reverse())
-                {
-                    line.label.x = consoleMargin;
-                    line.label.y = y;
-                    y += lineHeight;
-                }
-
-                // Draw caret
-                caret.SetPosition(inputLabel.LocalToOther(new Vector2(inputLabel.textRect.xMax + 1f, inputLabel.textRect.yMin + 1f), caret.container));
-                caret.isVisible = caretFlash < 0.5f;
-                caretFlash += Time.unscaledDeltaTime;
-                if (caretFlash >= 1f)
-                    caretFlash %= 1f;
-
-                container.MoveToFront();
-
-                autocomplete.Container.SetPosition(inputLabel.LocalToOther(new Vector2(inputLabel.textRect.xMax + 1f, inputLabel.textRect.yMin), autocomplete.Container.container));
-                
-                autocomplete.Container.isVisible = true;
+                Draw();
             }
+        }
+
+        private void Draw()
+        {
+            // Center console
+            container.x = Futile.screen.pixelWidth / 2 - consoleWidth / 2 + 0.1f;
+            container.y = Futile.screen.pixelHeight / 2 - consoleHeight / 2 + 0.1f;
+
+            // Position labels
+            int y = consoleMargin;
+            inputLabel.x = consoleMargin;
+            inputLabel.y = y;
+            string str = inputLine.Text;
+            inputLabel.text = " > " + str.Substring(0, Math.Min(str.Length, 1000));
+            y += lineHeight;
+
+            foreach (var line in lines.Reverse())
+            {
+                line.label.x = consoleMargin;
+                line.label.y = y;
+                y += lineHeight;
+            }
+
+            // Draw caret
+            float caretX = inputLabel.MeasureWidth(" > " + str.Substring(0, inputLine.CursorIndex));
+            float endX = inputLabel.MeasureWidth(" > " + str);
+
+            caret.SetPosition(inputLabel.LocalToOther(new Vector2(caretX + 1f, inputLabel.textRect.yMin + 1f), caret.container));
+            caret.isVisible = caretFlash < 0.5f;
+            caretFlash += Time.unscaledDeltaTime;
+            if (caretFlash >= 1f)
+                caretFlash %= 1f;
+            
+            if(inputLine.CursorIndex == inputLine.Length)
+            {
+                caret.scaleX = caretSize.x;
+                caret.scaleY = caretSize.y;
+            }
+            else
+            {
+                caret.scaleX = 1f;
+                caret.scaleY = lineHeight - 2f;
+                caret.y += lineHeight - 3f;
+                caret.x -= 2f;
+            }
+
+            container.MoveToFront();
+
+            autocomplete.Container.SetPosition(inputLabel.LocalToOther(new Vector2(endX + 1f, inputLabel.textRect.yMin), autocomplete.Container.container));
+
+            autocomplete.Container.isVisible = true;
         }
 
         private static readonly PropertyInfo GUIUtility_systemCopyBuffer = typeof(GUIUtility).GetProperty("systemCopyBuffer", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
@@ -563,8 +558,8 @@ namespace DevConsole
             };
             caret = new FSprite("pixel")
             {
-                scaleX = 6f,
-                scaleY = 1f,
+                scaleX = caretSize.x,
+                scaleY = caretSize.y,
                 anchorX = 0f,
                 anchorY = 1f
             };
@@ -589,6 +584,19 @@ namespace DevConsole
             LoadCommandHistory();
 
             Application.quitting += SaveCommandHistory;
+            inputLine.Submitted += command =>
+            {
+                var trimmedCommand = command.Trim();
+                
+                if (history.Count >= maxHistory) history.RemoveAt(0);
+                if (trimmedCommand != "" && (history.Count == 0 || history[history.Count - 1] != trimmedCommand))
+                {
+                    history.Add(trimmedCommand);
+                }
+                indexInHistory = -1;
+
+                SubmitCommand(trimmedCommand);
+            };
         }
 
         private void RunStartupCommands()

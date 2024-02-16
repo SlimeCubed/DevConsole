@@ -173,7 +173,7 @@ namespace DevConsole
         }
 
         // Shift the elements in the list, wrapping
-        private void CycleLeft<T>(List<T> list, int amount)
+        private static void CycleLeft<T>(List<T> list, int amount)
         {
             if (list.Count <= 1) return;
 
@@ -185,7 +185,7 @@ namespace DevConsole
             list.AddRange(temp);
         }
 
-        public void Update(StringBuilder inputString, bool allowScroll)
+        public void Update(InputLine inputLine, bool allowScroll)
         {
             if (Input.GetKeyDown(KeyCode.Tab) && (CurrentOption == null || !CurrentOption.StartsWith(hintPrefix)))
             {
@@ -194,10 +194,9 @@ namespace DevConsole
                 if (acOption != null && acOption.Length != 0)
                 {
                     // Delete current argument to correct capitalization
-                    inputString.Remove(inputString.Length - currentArgLength, currentArgLength);
-                    inputString.Append(acOption);
+                    inputLine.Replace(inputLine.Text.Substring(0, inputLine.Length - currentArgLength) + acOption);
                 }
-                UpdateText(inputString.ToString());
+                UpdateText(inputLine.Text);
             }
             else if (Input.GetKeyDown(KeyCode.UpArrow) && allowScroll)
                 CycleOptions(1);
