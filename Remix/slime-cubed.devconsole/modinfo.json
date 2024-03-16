@@ -3,7 +3,7 @@
 	"name": "Dev Console",
 	"version": "1.5.0",
 	"authors": "Slime_Cubed",
-	"description": "Adds an extensible in-game command console to Rain World inspired by the Source engine.",
+	"description": "Adds an extensible in-game command console to Rain World inspired by the Source engine.<LINE>Find the full list of commands on GitHub: https://github.com/SlimeCubed/DevConsole/wiki/Built-In-Commands",
 	"requirements": [],
 	"requirements_names": [],
 	"checksum_override_version": true
