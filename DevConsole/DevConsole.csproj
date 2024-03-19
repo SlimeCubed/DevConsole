@@ -4,6 +4,7 @@
     <TargetFramework>net4.8</TargetFramework>
     <LangVersion>9</LangVersion>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <AssemblyVersion>1.5.1.0</AssemblyVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,7 +14,7 @@
   </ItemGroup>
   
   <Target Name="CopyPlugin" AfterTargets="PostBuildEvent">
-    <Copy SourceFiles="$(TargetPath)" DestinationFolder="..\Remix\slime-cubed.devconsole\plugins" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="..\Remix\slime-cubed.devconsole\newest\plugins" />
   </Target>
   
 </Project>

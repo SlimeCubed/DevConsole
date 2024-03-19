@@ -17,7 +17,7 @@ namespace DevConsole
     internal class DevConsoleMod : BaseUnityPlugin
     {
         public const string MOD_ID = "slime-cubed.devconsole";
-        public const string MOD_VERSION = "1.5.0";
+        public const string MOD_VERSION = "1.5.1";
         private static bool initialized = false;
         private static ConsoleConfig config;
 
