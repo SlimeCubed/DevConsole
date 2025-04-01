@@ -5,12 +5,8 @@ using System.Text;
 using UnityEngine;
 using System.Reflection;
 using MonoMod.RuntimeDetour;
-using RWCustom;
-using BepInEx.Logging;
 using System.Collections;
 using Random = UnityEngine.Random;
-using CritType = CreatureTemplate.Type;
-using MSCCritType = MoreSlugcats.MoreSlugcatsEnums.CreatureTemplateType;
 
 namespace DevConsole
 {
@@ -1239,9 +1235,9 @@ namespace DevConsole
                             }
                         }
 
-                        float HighWaterLevel(On.Room.orig_FloatWaterLevel orig, Room self, float horizontalPos)
+                        float HighWaterLevel(On.Room.orig_FloatWaterLevel orig, Room self, Vector2 pos)
                         {
-                            return noclip ? 100000f : orig(self, horizontalPos);
+                            return noclip ? 100000f : orig(self, pos);
                         }
 
                         Room.Tile RemoveTiles(On.Room.orig_GetTile_int_int orig, Room self, int x, int y)
@@ -1444,6 +1440,10 @@ namespace DevConsole
                         state.permanentDamageTracking = 0f;
                     }
                     player.RealizeInRoom();
+                    if (player.realizedObject is Player realPlayer)
+                    {
+                        realPlayer.leechedOut = false;
+                    }
 
                     // Reset HUD
                     foreach(var cam in game.cameras)

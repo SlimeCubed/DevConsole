@@ -6,8 +6,10 @@ using System.Text.RegularExpressions;
 using UnityEngine;
 using ObjType = AbstractPhysicalObject.AbstractObjectType;
 using MSCObjType = MoreSlugcats.MoreSlugcatsEnums.AbstractObjectType;
+using DLCObjType = DLCSharedEnums.AbstractObjectType;
 using CritType = CreatureTemplate.Type;
 using MSCCritType = MoreSlugcats.MoreSlugcatsEnums.CreatureTemplateType;
+using DLCCritType = DLCSharedEnums.CreatureTemplateType;
 using AC = DevConsole.Autocomplete;
 using RWCustom;
 
@@ -230,7 +232,7 @@ namespace DevConsole
                     ObjType.SLOracleSwarmer,
                     ObjType.SSOracleSwarmer,
                     MSCObjType.EnergyCell,
-                    MSCObjType.SingularityBomb,
+                    DLCObjType.SingularityBomb,
                 };
 
                 var spawner = new SimpleSpawnerInfo(
@@ -259,12 +261,12 @@ namespace DevConsole
                     ObjType.JellyFish,
                     ObjType.FlyLure,
                     ObjType.NeedleEgg,
-                    MSCObjType.DandelionPeach,
-                    MSCObjType.GlowWeed,
-                    MSCObjType.GooieDuck,
+                    DLCObjType.DandelionPeach,
+                    DLCObjType.GlowWeed,
+                    DLCObjType.GooieDuck,
                     MSCObjType.HRGuard,
                     MSCObjType.MoonCloak,
-                    MSCObjType.Seed
+                    DLCObjType.Seed
                 };
 
                 var spawner = new SimpleSpawnerInfo(
@@ -509,7 +511,7 @@ namespace DevConsole
                     }
                 ));
 
-                RegisterSpawner(MSCObjType.LillyPuck, new SimpleSpawnerInfo(
+                RegisterSpawner(DLCObjType.LillyPuck, new SimpleSpawnerInfo(
                     (_, args) => args.Length == 0 ? new string[] { AC.hintPrefix + "bites: int" } : null,
 
                     (_, args, id, room, pos) =>
@@ -596,24 +598,24 @@ namespace DevConsole
                     CritType.TentaclePlant,
                     CritType.Centipede,
 
-                    MSCCritType.AquaCenti,
-                    MSCCritType.BigJelly,
-                    MSCCritType.EelLizard,
+                    DLCCritType.AquaCenti,
+                    DLCCritType.BigJelly,
+                    DLCCritType.EelLizard,
                     MSCCritType.FireBug,
                     MSCCritType.HunterDaddy,
-                    MSCCritType.Inspector,
-                    MSCCritType.JungleLeech,
-                    MSCCritType.MirosVulture,
-                    MSCCritType.MotherSpider,
-                    MSCCritType.ScavengerElite,
+                    DLCCritType.Inspector,
+                    DLCCritType.JungleLeech,
+                    DLCCritType.MirosVulture,
+                    DLCCritType.MotherSpider,
+                    DLCCritType.ScavengerElite,
                     MSCCritType.ScavengerKing,
                     MSCCritType.SlugNPC,
-                    MSCCritType.SpitLizard,
+                    DLCCritType.SpitLizard,
                     //MSCCritType.StowawayBug,
-                    MSCCritType.TerrorLongLegs,
+                    DLCCritType.TerrorLongLegs,
                     MSCCritType.TrainLizard,
-                    MSCCritType.Yeek,
-                    MSCCritType.ZoopLizard,
+                    DLCCritType.Yeek,
+                    DLCCritType.ZoopLizard,
 
                     //CritType.Slugcat,
                 };
@@ -660,7 +662,7 @@ namespace DevConsole
                             {
                                 if (room.realizedRoom is Room realRoom)
                                 {
-                                    bool denCrit = t == CritType.TentaclePlant || t == CritType.PoleMimic || t == MSCCritType.StowawayBug;
+                                    bool denCrit = t == CritType.TentaclePlant || t == CritType.PoleMimic || t == DLCCritType.StowawayBug;
 
                                     float minDist = float.PositiveInfinity;
                                     for (int i = 0; i < room.nodes.Length; i++)
@@ -805,7 +807,7 @@ namespace DevConsole
             if (obj is AbstractCreature crit &&
                 (crit.creatureTemplate.type == CritType.PoleMimic
                 || crit.creatureTemplate.type == CritType.TentaclePlant
-                || crit.creatureTemplate.type == MSCCritType.StowawayBug)
+                || crit.creatureTemplate.type == DLCCritType.StowawayBug)
                 && crit.pos.NodeDefined
                 && room.GetNode(crit.pos).type == AbstractRoomNode.Type.Den)
             {
