@@ -21,7 +21,7 @@ namespace DevConsole
             }
             catch (Exception e) when (e is DllNotFoundException or TypeLoadException)
             {
-                Debug.Log("Failed to load BepInEx, assuming not available.");
+                UnityEngine.Debug.Log("Failed to load BepInEx, assuming not available.");
             }
         }
 
@@ -72,7 +72,7 @@ namespace DevConsole
                         catch (Exception e)
                         {
                             WriteLine($"Error setting value, make sure it is correct");
-                            Debug.LogWarning($"bepcfg command error when setting {entrySection}.{entryName}: {e}");
+                            UnityEngine.Debug.LogWarning($"bepcfg command error when setting {entrySection}.{entryName}: {e}");
                         }
                     }
                     else

@@ -53,7 +53,14 @@ namespace DevConsole
             {
                 orig(self);
 
-                ObjectSpawner.RegisterSafeSpawners();
+                try
+                {
+                    ObjectSpawner.RegisterSafeSpawners();
+                }
+                catch (Exception e)
+                {
+                    UnityEngine.Debug.LogException(e);
+                }
 
                 if(ConsoleConfig.scanOnStartup.Value)
                 {

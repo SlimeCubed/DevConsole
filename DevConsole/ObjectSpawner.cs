@@ -4,14 +4,16 @@ using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using UnityEngine;
+using RWCustom;
 using ObjType = AbstractPhysicalObject.AbstractObjectType;
 using MSCObjType = MoreSlugcats.MoreSlugcatsEnums.AbstractObjectType;
 using DLCObjType = DLCSharedEnums.AbstractObjectType;
+using TWObjType = Watcher.WatcherEnums.AbstractObjectType;
 using CritType = CreatureTemplate.Type;
 using MSCCritType = MoreSlugcats.MoreSlugcatsEnums.CreatureTemplateType;
 using DLCCritType = DLCSharedEnums.CreatureTemplateType;
+using TWCritType = Watcher.WatcherEnums.CreatureTemplateType;
 using AC = DevConsole.Autocomplete;
-using RWCustom;
 
 namespace DevConsole
 {
@@ -231,8 +233,15 @@ namespace DevConsole
                     ObjType.ScavengerBomb,
                     ObjType.SLOracleSwarmer,
                     ObjType.SSOracleSwarmer,
-                    MSCObjType.EnergyCell,
                     DLCObjType.SingularityBomb,
+                    MSCObjType.EnergyCell,
+                    TWObjType.BallToy,
+                    TWObjType.Boomerang,
+                    // TWObjType.Prince,
+                    TWObjType.RippleSpawn,
+                    TWObjType.SoftToy,
+                    TWObjType.SpinToy,
+                    TWObjType.WeirdToy,
                 };
 
                 var spawner = new SimpleSpawnerInfo(
@@ -264,9 +273,9 @@ namespace DevConsole
                     DLCObjType.DandelionPeach,
                     DLCObjType.GlowWeed,
                     DLCObjType.GooieDuck,
+                    DLCObjType.Seed,
                     MSCObjType.HRGuard,
                     MSCObjType.MoonCloak,
-                    DLCObjType.Seed
                 };
 
                 var spawner = new SimpleSpawnerInfo(
@@ -478,6 +487,71 @@ namespace DevConsole
                 }
             ));
 
+            RegisterSpawner(ObjType.LobeTree, new SimpleSpawnerInfo(
+                (_, args) => args.Length switch
+                {
+                    0 => new string[] { AC.hintPrefix + "radius: float" },
+                    1 => new string[] { AC.hintPrefix + "rotation: float" },
+                    2 => new string[] { AC.hintPrefix + "stemX: float" },
+                    3 => new string[] { AC.hintPrefix + "stemY: float" },
+                    _ => null
+                },
+                (type, args, id, room, pos) =>
+                {
+                    float radius = 60f;
+                    if (args.Length > 0 && !float.TryParse(args[0], out radius))
+                        throw new ArgumentException("Radius must be a number!");
+
+                    float rotation = 0f;
+                    if (args.Length > 1 && !float.TryParse(args[1], out rotation))
+                        throw new ArgumentException("Rotation must be a number!");
+
+                    float stemX = -200f;
+                    if (args.Length > 2 && !float.TryParse(args[2], out stemX))
+                        throw new ArgumentException("Stem X must be a number!");
+
+                    float stemY = 0f;
+                    if (args.Length > 3 && !float.TryParse(args[3], out stemY))
+                        throw new ArgumentException("Stem Y must be a number!");
+
+                    GameConsole.WriteLine("What " + pos, Color.green);
+                    var pObj = new PlacedObject(PlacedObject.Type.LobeTree, null);
+                    pObj.pos = pos.Tile.ToVector2() * 20f + new Vector2(10f, 10f);
+                    var data = pObj.data as LobeTree.LobeTreeData;
+                    data.handlePos = Custom.DegToVec(rotation) * radius;
+                    data.rootOffset = new Vector2(stemX, stemY);
+                    return new LobeTree.AbstractLobeTree(room.world, type, null, pos, id, pObj);
+                }
+            ));
+
+            RegisterSpawner(ObjType.Pomegranate, new SimpleSpawnerInfo(
+                AutoCompleteTags("smashed", "spearmasterStabbed"),
+                (_, args, id, room, pos) =>
+                {
+                    //bool disconnected = args.Contains("disconnected", StringComparer.OrdinalIgnoreCase);
+                    bool disconnected = false;
+                    bool smashed = args.Contains("smashed", StringComparer.OrdinalIgnoreCase);
+                    bool spearmasterStabbed = args.Contains("spearmasterStabbed", StringComparer.OrdinalIgnoreCase);
+
+                    return new Pomegranate.AbstractPomegranate(room.world, null, pos, id, -1, -1, null, smashed, disconnected, spearmasterStabbed);
+                }
+            ));
+
+            if (ModManager.DLCShared)
+            {
+                RegisterSpawner(DLCObjType.LillyPuck, new SimpleSpawnerInfo(
+                    (_, args) => args.Length == 0 ? new string[] { AC.hintPrefix + "bites: int" } : null,
+
+                    (_, args, id, room, pos) =>
+                    {
+                        int bites = 3;
+                        if (args.Length > 0 && !int.TryParse(args[0], out bites))
+                            throw new ArgumentException("Bites must be an integer!");
+                        return new MoreSlugcats.LillyPuck.AbstractLillyPuck(room.world, null, pos, id, bites, -1, -1, null);
+                    }
+                ));
+            }
+
             if (ModManager.MSC)
             {
                 RegisterSpawner(MSCObjType.FireEgg, new SimpleSpawnerInfo(
@@ -511,18 +585,6 @@ namespace DevConsole
                     }
                 ));
 
-                RegisterSpawner(DLCObjType.LillyPuck, new SimpleSpawnerInfo(
-                    (_, args) => args.Length == 0 ? new string[] { AC.hintPrefix + "bites: int" } : null,
-
-                    (_, args, id, room, pos) =>
-                    {
-                        int bites = 3;
-                        if (args.Length > 0 && !int.TryParse(args[0], out bites))
-                            throw new ArgumentException("Bites must be an integer!");
-                        return new MoreSlugcats.LillyPuck.AbstractLillyPuck(room.world, null, pos, id, bites, -1, -1, null);
-                    }
-                ));
-
                 RegisterSpawner(MSCObjType.JokeRifle, new SimpleSpawnerInfo(
                     (_, args) => args.Length switch
                     {
@@ -544,6 +606,43 @@ namespace DevConsole
                         var rifle = new JokeRifle.AbstractRifle(room.world, null, pos, id, ammoType);
                         rifle.ammo[ammoType] = ammo;
                         return rifle;
+                    }
+                ));
+            }
+
+            if (ModManager.Watcher)
+            {
+                RegisterSpawner(TWObjType.FireSpriteLarva, new SimpleSpawnerInfo(
+                    (_, _) => null,
+                    (_, args, id, room, pos) =>
+                    {
+                        return new Watcher.BoxWorm.Larva.AbstractLarva(room.world, null, pos, id);
+                    }
+                ));
+
+                RegisterSpawner(TWObjType.PrinceBulb, new SimpleSpawnerInfo(
+                    (_, args) => args.Length switch
+                    {
+                        0 => new string[] { AC.hintPrefix + "stage: int" },
+                        1 => new string[] { AC.hintPrefix + "rotation: float" },
+                        2 => new string[] { AC.hintPrefix + "radius: float" },
+                        _ => null
+                    },
+                    (_, args, id, room, pos) =>
+                    {
+                        int stage = 0;
+                        if (args.Length > 0 && !int.TryParse(args[0], out stage))
+                            throw new ArgumentException("Stage must be an integer!");
+
+                        float rotation = 0f;
+                        if (args.Length > 1 && !float.TryParse(args[1], out rotation))
+                            throw new ArgumentException("Rotation must be a number!");
+
+                        float radius = 60f;
+                        if (args.Length > 2 && !float.TryParse(args[2], out radius))
+                            throw new ArgumentException("Radius must be a number!");
+
+                        return new Watcher.AbstractPrinceBulb(room.world, null, pos, id, stage, Custom.DegToVec(rotation), radius);
                     }
                 ));
             }
@@ -597,27 +696,48 @@ namespace DevConsole
                     CritType.PoleMimic,
                     CritType.TentaclePlant,
                     CritType.Centipede,
+                    //CritType.Slugcat,
 
                     DLCCritType.AquaCenti,
                     DLCCritType.BigJelly,
                     DLCCritType.EelLizard,
-                    MSCCritType.FireBug,
-                    MSCCritType.HunterDaddy,
+                    DLCCritType.TerrorLongLegs,
+                    DLCCritType.Yeek,
+                    DLCCritType.ZoopLizard,
                     DLCCritType.Inspector,
                     DLCCritType.JungleLeech,
                     DLCCritType.MirosVulture,
                     DLCCritType.MotherSpider,
                     DLCCritType.ScavengerElite,
+                    DLCCritType.SpitLizard,
+                    //DLCCritType.StowawayBug,
+
+                    MSCCritType.FireBug,
+                    MSCCritType.HunterDaddy,
                     MSCCritType.ScavengerKing,
                     MSCCritType.SlugNPC,
-                    DLCCritType.SpitLizard,
-                    //MSCCritType.StowawayBug,
-                    DLCCritType.TerrorLongLegs,
                     MSCCritType.TrainLizard,
-                    DLCCritType.Yeek,
-                    DLCCritType.ZoopLizard,
 
-                    //CritType.Slugcat,
+                    TWCritType.Barnacle,
+                    TWCritType.BasiliskLizard,
+                    TWCritType.BigMoth,
+                    // TWCritType.BigSandGrub,
+                    TWCritType.BlizzardLizard,
+                    TWCritType.BoxWorm,
+                    TWCritType.DrillCrab,
+                    TWCritType.FireSprite,
+                    TWCritType.Frog,
+                    TWCritType.IndigoLizard,
+                    TWCritType.Loach,
+                    TWCritType.Rat,
+                    TWCritType.Rattler,
+                    TWCritType.RotLoach,
+                    TWCritType.SandGrub,
+                    TWCritType.ScavengerDisciple,
+                    TWCritType.ScavengerTemplar,
+                    TWCritType.SkyWhale,
+                    TWCritType.SmallMoth,
+                    TWCritType.Tardigrade,
                 };
 
                 string[] tags = new string[]
@@ -705,7 +825,17 @@ namespace DevConsole
                                 }
                             }
 
-                            crit.setCustomFlags();
+                            try
+                            {
+                                crit.setCustomFlags();
+                            }
+                            catch
+                            {
+                                if (args.Length > 0)
+                                    GameConsole.WriteLine("Failed to set tags! Try again in story mode.");
+                            }
+
+
                             crit.Move(pos);
                             return crit;
                         }
@@ -851,8 +981,13 @@ namespace DevConsole
                     SpawnerInfo spawner;
                     if (safeObjSpawners.TryGetValue(objType, out spawner) || safeCritSpawners.TryGetValue(critType, out spawner))
                     {
-                        foreach (var entry in spawner.Autocomplete(objType, subArgs))
-                            yield return entry;
+                        IEnumerable<string> entries = spawner.Autocomplete(objType, subArgs);
+
+                        if (entries != null)
+                        {
+                            foreach (var entry in entries)
+                                yield return entry;
+                        }
                     }
                 }
             }
@@ -1137,7 +1272,7 @@ namespace DevConsole
                 }
                 catch (Exception e)
                 {
-                    Debug.LogException(e);
+                    UnityEngine.Debug.LogException(e);
                 }
 
                 if (types != null)

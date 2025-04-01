@@ -579,7 +579,7 @@ namespace DevConsole
                                             catch(Exception e)
                                             {
                                                 WriteLine($"Couldn't parse regex: {e.Message}");
-                                                Debug.LogException(e);
+                                                UnityEngine.Debug.LogException(e);
                                                 return;
                                             }
 
@@ -856,7 +856,7 @@ namespace DevConsole
                     catch(Exception e)
                     {
                         WriteLine("Failed to destroy everything in the region. See console log for more info.");
-                        Debug.Log("remove_crits failed: " + e);
+                        UnityEngine.Debug.Log("remove_crits failed: " + e);
                     }
                 })
                 .Help("remove_crits [respawn: no_respawn]")
@@ -1404,7 +1404,7 @@ namespace DevConsole
                         catch(Exception e)
                         {
                             WriteLine("Failed to toggle invulnerability! See console log for more info.");
-                            Debug.Log("invlun failed: " + e);
+                            UnityEngine.Debug.Log("invlun failed: " + e);
                         }
                     })
                     .Help("invuln [to?]")
@@ -1708,7 +1708,7 @@ namespace DevConsole
                         catch (Exception e)
                         {
                             WriteLine(e.Message);
-                            Debug.Log(e);
+                            UnityEngine.Debug.Log(e);
                         }
                     }
                 })
@@ -1742,7 +1742,7 @@ namespace DevConsole
                     catch (Exception e)
                     {
                         WriteLine(e.Message);
-                        Debug.Log(e);
+                        UnityEngine.Debug.Log(e);
                     }
                 })
                 .Help("spawn [type] [ID?] [args...]")
@@ -1785,7 +1785,7 @@ namespace DevConsole
             // Commands related to the console
             #region Meta
 
-            // Mirrors all Debug.Log* calls to the dev console
+            // Mirrors all UnityEngine.Debug.Log* calls to the dev console
             new CommandBuilder("show_debug")
                 .Run(args =>
                 {
