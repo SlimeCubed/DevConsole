@@ -1960,7 +1960,7 @@ namespace DevConsole
                         }
                     }
                 })
-                .Help("ripple_level [level]")
+                .Help("ripple [subcommand?] [level?]")
                 .AutoComplete(new string[][] {
                     new string[] { "current", "min", "max" },
                     new string[] { "0", "0.25", "0.5", "1", "1.5", "2", "2.5", "3", "3.5", "4", "4.5", "5" }
