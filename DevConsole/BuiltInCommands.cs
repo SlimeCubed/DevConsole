@@ -1900,6 +1900,74 @@ namespace DevConsole
                 .Register();
 
             #endregion Meta
+
+            // Commands related to The Watcher DLC
+            #region Watcher
+
+            new CommandBuilder("ripple")
+                .RunGame((game, args) =>
+                {
+                    if (!game.IsStorySession)
+                    {
+                        WriteLine("Must be a story game!");
+                        return;
+                    }
+                    var dpsd = game.GetStorySession.saveState.deathPersistentSaveData;
+
+                    if (args.Length == 0)
+                    {
+                        WriteLine($"Ripple level: {dpsd.rippleLevel}");
+                        WriteLine($"Minimum: {dpsd.minimumRippleLevel}");
+                        WriteLine($"Maximum: {dpsd.maximumRippleLevel}");
+                    }
+                    else
+                    {
+                        float? setLevel = null;
+                        if (args.Length > 1)
+                        {
+                            if (float.TryParse(args[1], out float newLevel))
+                                setLevel = newLevel;
+                            else
+                                throw new ArgumentException("New ripple level must be a number!");
+                        }
+
+                        switch (args[0])
+                        {
+                            case "current":
+                                if (setLevel == null)
+                                    WriteLine($"Ripple level: {dpsd.rippleLevel}");
+                                else
+                                    dpsd.rippleLevel = setLevel.Value;
+                                break;
+
+                            case "min":
+                                if (setLevel == null)
+                                    WriteLine($"Minimum ripple level: {dpsd.minimumRippleLevel}");
+                                else
+                                    dpsd.minimumRippleLevel = setLevel.Value;
+                                break;
+
+                            case "max":
+                                if (setLevel == null)
+                                    WriteLine($"Maximum ripple level: {dpsd.maximumRippleLevel}");
+                                else
+                                    dpsd.maximumRippleLevel = setLevel.Value;
+                                break;
+
+                            default:
+                                WriteLine("Unknown subcommand!");
+                                break;
+                        }
+                    }
+                })
+                .Help("ripple_level [level]")
+                .AutoComplete(new string[][] {
+                    new string[] { "current", "min", "max" },
+                    new string[] { "0", "0.25", "0.5", "1", "1.5", "2", "2.5", "3", "3.5", "4", "4.5", "5" }
+                })
+                .Register();
+
+            #endregion Watcher
         }
 
         private static void WritePaginated(string title, IEnumerable<string> contents, string page, int pageSize = -1)
