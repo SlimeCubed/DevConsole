@@ -842,6 +842,61 @@ namespace DevConsole
                     ));
                 }
             }
+
+            if (ModManager.Watcher)
+            {
+                RegisterSpawner(TWCritType.BigSandGrub, new SimpleSpawnerInfo(
+                    (_, _) => null,
+                    (_, args, id, room, pos) => {
+                        var realizedRoom = room.realizedRoom;
+                        Vector2 tilePos = realizedRoom.MiddleOfTile(pos);
+
+                        //get or create a sandgrub network if it doesn't exist yet
+                        Watcher.SandGrubNetwork sgn = (Watcher.SandGrubNetwork)realizedRoom.updateList.FirstOrDefault(x => x is Watcher.SandGrubNetwork);
+                        if (sgn == null)
+                        {
+                            sgn = new Watcher.SandGrubNetwork(tilePos, 0f, 0f, 0f, false);
+                            sgn.scanForBurrows = false;
+                            realizedRoom.AddObject(sgn);
+                        }
+
+                        //create a new burrow at the current position (on the ground)
+                        Watcher.SandGrubBurrow sgb = new Watcher.SandGrubBurrow(null);
+                        sgb.pos = realizedRoom.FindGroundBelow(tilePos, out sgb.dir, 200f);
+                        sgb.room = realizedRoom;
+                        realizedRoom.AddObject(sgb);
+
+                        //add burrow to network, an empty network is destroyed automatically in the first update call
+                        sgb.SetNetwork(sgn);
+                        sgn.burrows.Add(sgb);
+
+                        //create creature
+                        var template = StaticWorld.GetCreatureTemplate(TWCritType.BigSandGrub);
+                        var crit = new AbstractCreature(room.world, template, null, pos, id);
+                        SandGrubState sandGrubState = (SandGrubState)crit.state;
+
+                        room.AddEntity(crit); //NOTE: added to room prematurely! to correctly assign burrow on realized creature
+                        crit.RealizeInRoom(); //NOTE: realized in room prematurely!
+
+                        //add bigsandgrub to burrow
+                        sgb.grub = crit.realizedCreature as Watcher.SandGrub;
+                        (crit.realizedCreature as Watcher.SandGrub).burrow = sgb;
+
+                        try
+                        {
+                            crit.setCustomFlags();
+                        }
+                        catch
+                        {
+                            if (args.Length > 0)
+                                GameConsole.WriteLine("Failed to set tags! Try again in story mode.");
+                        }
+
+                        crit.Move(pos);
+                        return null; //NOTE: returns null so creature is not added to the room twice with double update rate
+                    }
+                ));
+            }
         }
 
         private static Func<ObjType, string[], IEnumerable<string>> AutoCompleteTags(params string[] tags)
@@ -933,6 +988,7 @@ namespace DevConsole
 
         internal static void AddToRoom(AbstractPhysicalObject obj)
         {
+            if (obj == null) return;
             var room = obj.world.GetAbstractRoom(obj.pos);
             if (obj is AbstractCreature crit &&
                 (crit.creatureTemplate.type == CritType.PoleMimic
