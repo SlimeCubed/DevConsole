@@ -869,16 +869,19 @@ namespace DevConsole
                         //add burrow to network, an empty network is destroyed automatically in the first update call
                         sgb.SetNetwork(sgn);
                         sgn.burrows.Add(sgb);
+                        //NOTE: burrow and network are not added as placedobjects, so the grub 
+                        //will bug out and fall out of the room if the room is reloaded
 
                         //create creature
                         var template = StaticWorld.GetCreatureTemplate(TWCritType.BigSandGrub);
                         var crit = new AbstractCreature(room.world, template, null, pos, id);
                         SandGrubState sandGrubState = (SandGrubState)crit.state;
 
-                        room.AddEntity(crit); //NOTE: added to room prematurely! to correctly assign burrow on realized creature
-                        crit.RealizeInRoom(); //NOTE: realized in room prematurely!
+                        //NOTE: added to room prematurely! to correctly assign burrow on realized creature
+                        room.AddEntity(crit);
+                        crit.RealizeInRoom();
 
-                        //add bigsandgrub to burrow
+                        //add BigSandGrub to burrow
                         sgb.grub = crit.realizedCreature as Watcher.SandGrub;
                         (crit.realizedCreature as Watcher.SandGrub).burrow = sgb;
 
