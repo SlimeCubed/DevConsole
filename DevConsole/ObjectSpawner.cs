@@ -260,7 +260,6 @@ namespace DevConsole
                 // No arguments, consumable object
                 var consumableObjs = new ObjType[]
                 {
-                    ObjType.DangleFruit,
                     ObjType.PuffBall,
                     ObjType.KarmaFlower,
                     ObjType.Mushroom,
@@ -291,6 +290,18 @@ namespace DevConsole
             }
 
             // Unique objects
+            RegisterSpawner(ObjType.DangleFruit, new SimpleSpawnerInfo(
+                AutoCompleteTags("rotted"),
+
+                (_, args, id, room, pos) =>
+                {
+                    bool rotted = false;
+                    if (args.Length > 0)
+                        rotted = args[0].Equals("rotted", StringComparison.OrdinalIgnoreCase);
+                    return new DangleFruit.AbstractDangleFruit(room.world, null, pos, id, -1, -1, rotted, null);
+                }
+            ));
+
             RegisterSpawner(ObjType.EggBugEgg, new SimpleSpawnerInfo(
                 (_, args) => args.Length == 0 ? new string[] { AC.hintPrefix + "hue: float" } : null,
 
@@ -721,7 +732,6 @@ namespace DevConsole
                     TWCritType.Barnacle,
                     TWCritType.BasiliskLizard,
                     TWCritType.BigMoth,
-                    // TWCritType.BigSandGrub,
                     TWCritType.BlizzardLizard,
                     TWCritType.BoxWorm,
                     TWCritType.DrillCrab,
@@ -732,7 +742,6 @@ namespace DevConsole
                     TWCritType.Rat,
                     TWCritType.Rattler,
                     TWCritType.RotLoach,
-                    TWCritType.SandGrub,
                     TWCritType.ScavengerDisciple,
                     TWCritType.ScavengerTemplar,
                     TWCritType.SkyWhale,
@@ -840,6 +849,41 @@ namespace DevConsole
                             return crit;
                         }
                     ));
+                }
+
+                if (ModManager.Watcher)
+                {
+                    for (int i = 0; i < 2; i++)
+                    {
+                        var type = i == 0 ? TWCritType.SandGrub : TWCritType.BigSandGrub;
+                        RegisterSpawner(type, new SimpleSpawnerInfo(
+                            tagsAC,
+
+                            (_, args, id, room, pos) =>
+                            {
+                                var realPos = room.realizedRoom.MiddleOfTile(pos);
+                                var burrow = new Watcher.SandGrubBurrow(null);
+                                realPos = room.realizedRoom.FindGroundBelow(realPos, out burrow.dir, 200f);
+                                burrow.pos = realPos;
+                                room.realizedRoom.AddObject(burrow);
+
+                                var pObj = new PlacedObject(PlacedObject.Type.SandGrubNetwork, null);
+                                pObj.pos = realPos;
+                                var network = new Watcher.SandGrubNetwork(pObj, UnityEngine.Random.Range(1000, 100000), false);
+                                room.realizedRoom.AddObject(network);
+                                network.scanForBurrows = false;
+                                network.burrows.Add(burrow);
+                                burrow.network = network;
+
+                                var crit = new AbstractCreature(room.world, StaticWorld.GetCreatureTemplate(type), null, room.realizedRoom.GetWorldCoordinate(realPos), id);
+                                var state = crit.state as SandGrubState;
+                                state.placedObjectIndex = network.placedObjectIndex;
+                                state.origRoom = room.index;
+
+                                return crit;
+                            }
+                        ));
+                    }
                 }
             }
         }
@@ -1231,6 +1275,25 @@ namespace DevConsole
             else if (toType == typeof(CreatureTemplate))
             {
                 return StaticWorld.GetCreatureTemplate(WorldLoader.CreatureTypeFromString(text));
+            }
+            else if (toType == typeof(Color))
+            {
+                var namedColor = System.Drawing.Color.FromName(text);
+                if (namedColor.IsKnownColor)
+                {
+                    return new Color(namedColor.R, namedColor.G, namedColor.B, namedColor.A) / 255f;
+                }
+
+                var match = Regex.Match(text, "^#?([0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?)$");
+                if (match.Success)
+                {
+                    Color color = RXUtils.GetColorFromHex(match.Groups[1].Value);
+                    if (match.Groups[1].Value.Length == 6)
+                        color.a = 1f;
+                    return color;
+                }
+
+                throw new FormatException("Unknown color name or invalid hexadecimal color code!");
             }
 
             // Try finding a method called FromString
