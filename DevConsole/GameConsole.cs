@@ -849,8 +849,6 @@ namespace DevConsole
                 int j = i + scroll;
                 if (j < lines.Count)
                 {
-                    if (lines[j].text == null)
-                        throw new IndexOutOfRangeException($"Index {j} was outside of lines {lines.Count} capacity {lines.Capacity}");
                     label.text = lines[j].text;
                     label.color = lines[j].color;
                     label.isVisible = true;
