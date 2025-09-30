@@ -14,7 +14,7 @@
   </ItemGroup>
   
   <Target Name="CopyPlugin" AfterTargets="PostBuildEvent">
-    <Copy SourceFiles="$(TargetPath)" DestinationFolder="..\Remix\slime-cubed.devconsole\newest\plugins" />
+    <Copy SourceFiles="$(TargetPath);$(TargetDir)$(TargetName).pdb;$(TargetDir)$(TargetName).xml" DestinationFolder="..\Remix\slime-cubed.devconsole\newest\plugins" />
   </Target>
   
 </Project>
