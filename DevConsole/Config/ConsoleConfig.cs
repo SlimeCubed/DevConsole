@@ -15,6 +15,7 @@ namespace DevConsole
             public static Configurable<bool> scanOnStartup;
             public static Configurable<string> defaultPos;
             public static Configurable<bool> saveHistory;
+            public static Configurable<int> savedLines;
 
             public ConsoleConfig()
             {
@@ -52,6 +53,14 @@ namespace DevConsole
                     key: "save_history",
                     defaultValue: true,
                     info: new ConfigurableInfo("Save command history between sessions."));
+
+                savedLines = config.Bind(
+                    key: "saved_lines",
+                    defaultValue: 1000,
+                    info: new ConfigurableInfo(
+                        description: $"The number of lines of console output to save. A scroll bar appears above {GameConsole.OutputLines}.",
+                        acceptable: new ConfigAcceptableRange<int>(GameConsole.OutputLines, 10000))
+                    );
             }
 
             public override void Initialize()
@@ -140,6 +149,18 @@ namespace DevConsole
                     new OpComboBox(defaultPos, listPos + new Vector2(2f, 0f), 140f)
                 );
                 listPos.y -= 29f;
+
+                // Saved lines
+                Tabs[0].AddItems(
+                    new OpLabel(listPos - new Vector2(102f, 0f), new Vector2(100f, 24f), "Saved lines")
+                    {
+                        alignment = FLabelAlignment.Right,
+                        verticalAlignment = OpLabel.LabelVAlignment.Center,
+                        description = savedLines.info.description
+                    },
+                    new OpUpdown(savedLines, listPos + new Vector2(2f, 0f), 140f)
+                );
+                listPos.y -= 39f;
             }
 
             private class AcceptFonts : ConfigAcceptableList<string>

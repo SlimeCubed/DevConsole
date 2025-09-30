@@ -1,18 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using MonoMod.RuntimeDetour;
 using UnityEngine;
 using System.Reflection;
 using System.IO;
 using RWCustom;
+using System.Diagnostics;
 
 namespace DevConsole
 {
     using Commands;
-    using DevConsole.Config;
-    using System.Diagnostics;
+    using Config;
 
     /// <summary>
     /// Allows for interaction with and extension of the in-game console.
@@ -38,20 +37,25 @@ namespace DevConsole
         private static bool blockingInput = false;  // True while the input blockers are active
         private static Hook blockUpdateHook;        // A hook that pauses the game
         private static readonly List<CommandHandlerInfo> commands = new List<CommandHandlerInfo>();
-        private static List<QueuedLine> queuedLines = new List<QueuedLine>(); // Lines sent before init or from another thread
+        private static List<LineInfo> queuedLines = new List<LineInfo>(); // Lines sent before init or from another thread
         private static ForceOpenArgs forceOpen;
 
-        private InputLine inputLine = new InputLine();                  // Stores the user's command line input
-        private readonly Queue<LineInfo> lines = new Queue<LineInfo>(); // Stores the most recent output lines added
-        private readonly List<string> history = new List<string>();     // Stores the most recent commands so they may be traversed
+        private InputLine inputLine = new InputLine();               // Stores the user's command line input
+        private LineQueue<LineInfo> lines;                           // Stores the most recent output lines added
+        private readonly FLabel[] lineLabels = new FLabel[maxLines]; // Displays output lines in the console
+        private readonly List<string> history = new List<string>();  // Stores the most recent commands so they may be traversed
         private int indexInHistory;        // Which entry in history the user is viewing, or -1 if this command was written from scratch
+        private int scroll;                // How many lines up the console is currently scrolled
         private bool typing;               // True when input is redirected to the command line
         private bool silent;               // True when all logs to the console should be hidden
+        private bool labelsDirty;          // True if console text should be refreshed next frame
         private FContainer container;      // The container for all game console nodes
         private FContainer textContainer;  // The container for the console's text
         private FSprite background;        // The background rect of the game console
         private FLabel inputLabel;         // Displays the user's command line input
         private FSprite caret;             // The flashing sprite next to the input
+        private FSprite scrollbar;         // The scroll bar to the right of the console
+        private bool draggingScrollbar;    // True if the scrollbar should move with the mouse
         private float caretFlash;          // Timer for the caret flashing
         private Autocomplete autocomplete; // The autocomplete interface
         private DevConsoleMod mod;         // The parent mod
@@ -68,33 +72,47 @@ namespace DevConsole
             new CommandBuilder("help")
                 .Run(args =>
                 {
-                    int page;
-                    if (args.Length == 0 || !int.TryParse(args[0], out page))
-                        page = 0;
-                    else
-                        page = Math.Max(page - 1, 0);
-
                     var helps = commands
                         .Select(cmd =>
                         {
                             try { return cmd.Help(); }
                             catch { return null; }
                         })
-                        .Where(help => help != null)
-                        .OrderBy(help => help)
-                        .Skip((maxLines - 1) * page)
-                        .Take(maxLines - 1)
-                        .ToArray();
+                        .Where(help => help != null);
 
-                    if (helps.Length > 0)
+                    if (args.Length > 0 && args[0].Equals("all", StringComparison.OrdinalIgnoreCase)
+                        || args.Length == 0 && helps.Count() + 1 < ConsoleConfig.savedLines.Value)
                     {
-                        WriteLine($"Showing help for page {page + 1}. Run \"wiki\" for more detailed descriptions.", new Color(0.5f, 1f, 0.75f));
+                        helps = helps.OrderByDescending(help => help);
+
                         foreach (var help in helps)
                             WriteLine(help);
+
+                        WriteLine($"Scroll to see all help. Run \"wiki\" for more detailed descriptions.", new Color(0.5f, 1f, 0.75f));
                     }
                     else
                     {
-                        WriteLine($"Page {page + 1} empty!", new Color(0.5f, 1f, 0.75f));
+                        int page;
+                        if (args.Length == 0 || !int.TryParse(args[0], out page))
+                            page = 0;
+                        else
+                            page = Math.Max(page - 1, 0);
+
+                        helps = helps.OrderBy(help => help)
+                            .Skip((maxLines - 1) * page)
+                            .Take(maxLines - 1)
+                            .ToArray();
+
+                        if (helps.Count() > 0)
+                        {
+                            WriteLine($"Showing help for page {page + 1}. Run \"wiki\" for more detailed descriptions.", new Color(0.5f, 1f, 0.75f));
+                            foreach (var help in helps)
+                                WriteLine(help);
+                        }
+                        else
+                        {
+                            WriteLine($"Page {page + 1} empty!", new Color(0.5f, 1f, 0.75f));
+                        }
                     }
                 })
                 .Help("help [page: 1]")
@@ -203,7 +221,7 @@ namespace DevConsole
                 {
                     lock (queuedLines)
                     {
-                        queuedLines.Add(new QueuedLine() { color = color, text = text });
+                        queuedLines.Add(new LineInfo() { color = color, text = text });
                     }
                 }
                 return;
@@ -231,12 +249,12 @@ namespace DevConsole
         {
             lock (queuedLines)
             {
-                queuedLines.Add(new QueuedLine()
+                queuedLines.Add(new LineInfo()
                 {
                     text = text,
                     color = color
                 });
-                if (queuedLines.Count > maxLines)
+                if (queuedLines.Count > ConsoleConfig.savedLines.Value)
                     queuedLines.RemoveAt(0);
             }
         }
@@ -284,9 +302,18 @@ namespace DevConsole
 
             if (!Initialized) return;
 
-            foreach (var line in instance.lines)
-                line.label.RemoveFromContainer();
+            for (int i = 0; i < instance.lineLabels.Length; i++)
+            {
+                instance.lineLabels[i].RemoveFromContainer();
+                instance.lineLabels[i] = new FLabel(CurrentFont, "")
+                {
+                    anchorX = 0f,
+                    anchorY = 0f
+                };
+                instance.textContainer.AddChild(instance.lineLabels[i]);
+            }
             instance.lines.Clear();
+            instance.scroll = 0;
 
             // Make a new label with the new font
             var newLabel = new FLabel(CurrentFont, "")
@@ -438,6 +465,45 @@ namespace DevConsole
                     }
                 }
 
+                // Scroll screen with wheel and keys
+                int scrollDelta = Mathf.RoundToInt(Input.mouseScrollDelta.y) * 2
+                    + (Input.GetKeyDown(KeyCode.PageUp) ? maxLines - 1 : 0)
+                    - (Input.GetKeyDown(KeyCode.PageDown) ? maxLines - 1 : 0);
+                if (scrollDelta != 0)
+                {
+                    scroll = Mathf.Clamp(scroll + scrollDelta, 0, Math.Max(lines.Count - maxLines, 0));
+                    labelsDirty = true;
+                }
+                
+                // Scroll screen with mouse
+                if (Input.GetMouseButtonDown(0))
+                {
+                    var localPos = container.GlobalToLocal(Input.mousePosition);
+                    if (localPos.x > consoleWidth - 18f && localPos.x < consoleWidth + 10f && localPos.y > 0f && localPos.y < consoleHeight)
+                    {
+                        draggingScrollbar = true;
+                    }
+                }
+
+                if (draggingScrollbar)
+                {
+                    if (Input.GetMouseButton(0))
+                    {
+                        var localPos = container.GlobalToLocal(Input.mousePosition);
+                        int targetScroll = Mathf.RoundToInt(localPos.y / consoleHeight * lines.Count) - maxLines / 2;
+                        targetScroll = Mathf.Clamp(targetScroll, 0, Math.Max(lines.Count - maxLines, 0));
+                        if (scroll != targetScroll)
+                        {
+                            scroll = targetScroll;
+                            labelsDirty = true;
+                        }
+                    }
+                    else
+                    {
+                        draggingScrollbar = false;
+                    }
+                }
+
                 // Move cursor
                 if (Input.GetKeyDown(KeyCode.LeftArrow))
                 {
@@ -489,10 +555,11 @@ namespace DevConsole
             inputLabel.text = " > " + str.Substring(0, Math.Min(str.Length, 1000));
             y += lineHeight;
 
-            foreach (var line in lines.Reverse())
+            for (int i = 0; i < lineLabels.Length; i++)
             {
-                line.label.x = consoleMargin;
-                line.label.y = y;
+                var label = lineLabels[i];
+                label.x = consoleMargin;
+                label.y = y;
                 y += lineHeight;
             }
 
@@ -519,11 +586,21 @@ namespace DevConsole
                 caret.x -= 2f;
             }
 
+            // Draw scrollbar
+            float lowScrollFrac = Mathf.Clamp01(scroll / (float)lines.Count);
+            float highScrollFrac = Mathf.Clamp01((scroll + maxLines) / (float)lines.Count);
+            scrollbar.SetPosition(consoleWidth - 4f, lowScrollFrac * consoleHeight);
+            scrollbar.scaleY = (highScrollFrac - lowScrollFrac) * consoleHeight;
+            scrollbar.isVisible = lowScrollFrac != 0f || highScrollFrac != 1f;
+
             container.MoveToFront();
 
             autocomplete.Container.SetPosition(inputLabel.LocalToOther(new Vector2(endX + 1f, inputLabel.textRect.yMin), autocomplete.Container.container));
 
             autocomplete.Container.isVisible = true;
+
+            if (labelsDirty)
+                RefreshLabels();
         }
 
         private static readonly PropertyInfo GUIUtility_systemCopyBuffer = typeof(GUIUtility).GetProperty("systemCopyBuffer", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
@@ -563,15 +640,36 @@ namespace DevConsole
                 anchorX = 0f,
                 anchorY = 1f
             };
+            scrollbar = new FSprite("pixel")
+            {
+                anchorX = 0f,
+                anchorY = 0f,
+                scaleX = 2f,
+                alpha = 0.5f
+            };
 
             container.AddChild(background);
             container.AddChild(textContainer);
             container.AddChild(autocomplete.Container);
             container.AddChild(inputLabel);
             container.AddChild(caret);
+            container.AddChild(scrollbar);
 
             container.isVisible = false;
             Futile.stage.AddChild(container);
+
+            lines = new LineQueue<LineInfo>(ConsoleConfig.savedLines.Value);
+
+            // Add text labels
+            for (int i = 0; i < maxLines; i++)
+            {
+                lineLabels[i] = new FLabel(CurrentFont, "")
+                {
+                    anchorX = 0f,
+                    anchorY = 0f
+                };
+                textContainer.AddChild(lineLabels[i]);
+            }
 
             WriteHeader();
 
@@ -595,6 +693,7 @@ namespace DevConsole
                 }
                 indexInHistory = -1;
 
+                scroll = 0;
                 SubmitCommand(trimmedCommand);
             };
         }
@@ -720,24 +819,54 @@ namespace DevConsole
 
             OnLineWritten?.Invoke(new ConsoleLineEventArgs(text, color));
 
-            LineInfo line;
-            if (lines.Count < maxLines)
+            lines.Enqueue(new LineInfo()
             {
-                line = new LineInfo();
-                line.label = new FLabel(CurrentFont, "")
-                {
-                    anchorX = 0f,
-                    anchorY = 0f,
-                    color = color
-                };
-                textContainer.AddChild(line.label);
-            }
-            else
-                line = lines.Dequeue();
+                color = color,
+                text = text
+            });
 
-            line.label.color = color;
-            line.label.text = text;
-            lines.Enqueue(line);
+            if (scroll > 0 && scroll < ConsoleConfig.savedLines.Value - maxLines)
+                scroll++;
+
+            labelsDirty = true;
+        }
+
+        private void RefreshLabels()
+        {
+            labelsDirty = false;
+            int capacity = ConsoleConfig.savedLines.Value;
+            if (lines.Capacity != capacity)
+            {
+                var newLines = new LineQueue<LineInfo>(capacity);
+                for (int i = Math.Max(lines.Count - capacity, 0); i < lines.Count; i++)
+                    newLines.Enqueue(lines[i]);
+                lines = newLines;
+            }
+
+            for (int i = 0; i < maxLines; i++)
+            {
+                var label = lineLabels[i];
+                int j = i + scroll;
+                if (j < lines.Count)
+                {
+                    if (lines[j].text == null)
+                        throw new IndexOutOfRangeException($"Index {j} was outside of lines {lines.Count} capacity {lines.Capacity}");
+                    label.text = lines[j].text;
+                    label.color = lines[j].color;
+                    label.isVisible = true;
+                }
+                else
+                {
+                    label.isVisible = false;
+                }
+            }
+
+            // Show number of hidden lines when scrolling
+            if (scroll > 0)
+            {
+                lineLabels[0].text = $"        ... {scroll + 1} more lines below ...";
+                lineLabels[0].color = new Color(74f / 255f, 190f / 255f, 247f / 255f);
+            }
         }
 
         // Blocks input from reaching other listeners
@@ -820,16 +949,10 @@ namespace DevConsole
         }
 
         // Info about a specific line of output
-        private class LineInfo
+        private struct LineInfo
         {
-            public FLabel label;
-        }
-
-        // Info about a line that was submitted before initialization
-        private class QueuedLine
-        {
-            public Color color;
             public string text;
+            public Color color;
         }
 
         // Info about how the console should act when forced open

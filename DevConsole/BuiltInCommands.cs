@@ -1789,12 +1789,12 @@ namespace DevConsole
             new CommandBuilder("show_debug")
                 .Run(args =>
                 {
-                    if (showingDebug) Application.logMessageReceived -= WriteLogToConsole;
-                    else Application.logMessageReceived += WriteLogToConsole;
+                    if (showingDebug) Application.logMessageReceivedThreaded -= WriteLogToConsole;
+                    else Application.logMessageReceivedThreaded += WriteLogToConsole;
                     showingDebug = !showingDebug;
                     WriteLine(showingDebug ? "Debug messages will be displayed here." : "Debug messages will no longer be displayed here.");
 
-                    if (args.Length > 0 && bool.TryParse(args[0], out bool argBool) && argBool)
+                    if (args.Length > 0 && (bool.TryParse(args[0], out bool argBool) && argBool || args[0].Equals("pause_on_error", StringComparison.OrdinalIgnoreCase)))
                     {
                         WriteLine("The game will pause when errors occur.");
                         pauseOnError = true;
@@ -1802,10 +1802,10 @@ namespace DevConsole
                     else
                         pauseOnError = false;
                 })
-                .Help("show_debug [pause_on_error: false]")
+                .Help("show_debug [pause_on_error?]")
                 .AutoComplete(new string[][]
                 {
-                    new string[] { "true", "false" }
+                    new string[] { "pause_on_error" }
                 })
                 .Register();
 
@@ -2046,10 +2046,10 @@ namespace DevConsole
         {
             if (!logColors.TryGetValue(type, out Color color)) color = Color.white;
 
-            WriteLine($"[{type}] {logString}", color);
-            if(type == LogType.Exception || type == LogType.Error || type == LogType.Assert)
+            WriteLineThreaded($"[{type}] {logString}", color);
+            if (type == LogType.Exception || type == LogType.Error || type == LogType.Assert)
             {
-                WriteLine(stackTrace, color);
+                WriteLineThreaded(stackTrace, color);
                 if (pauseOnError)
                     ForceOpen(true);
             }

@@ -862,7 +862,7 @@ namespace DevConsole
                             (_, args, id, room, pos) =>
                             {
                                 var realPos = room.realizedRoom.MiddleOfTile(pos);
-                                var burrow = new Watcher.SandGrubBurrow(null);
+                                var burrow = new Watcher.SandGrubBurrow(null, null);
                                 realPos = room.realizedRoom.FindGroundBelow(realPos, out burrow.dir, 200f);
                                 burrow.pos = realPos;
                                 room.realizedRoom.AddObject(burrow);
