@@ -861,7 +861,7 @@ namespace DevConsole
                         }
 
                         //create a new burrow at the current position (on the ground)
-                        Watcher.SandGrubBurrow sgb = new Watcher.SandGrubBurrow(null);
+                        Watcher.SandGrubBurrow sgb = new Watcher.SandGrubBurrow(null, null);
                         sgb.pos = realizedRoom.FindGroundBelow(tilePos, out sgb.dir, 200f);
                         sgb.room = realizedRoom;
                         realizedRoom.AddObject(sgb);
