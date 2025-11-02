@@ -729,6 +729,7 @@ namespace DevConsole
                     MSCCritType.SlugNPC,
                     MSCCritType.TrainLizard,
 
+                    TWCritType.Angler,
                     TWCritType.Barnacle,
                     TWCritType.BasiliskLizard,
                     TWCritType.BigMoth,
@@ -739,6 +740,9 @@ namespace DevConsole
                     TWCritType.Frog,
                     TWCritType.IndigoLizard,
                     TWCritType.Loach,
+                    TWCritType.Millipede,
+                    TWCritType.MothGrub,
+                    TWCritType.PeachLizard,
                     TWCritType.Rat,
                     TWCritType.Rattler,
                     TWCritType.RotLoach,
@@ -747,6 +751,7 @@ namespace DevConsole
                     TWCritType.SkyWhale,
                     TWCritType.SmallMoth,
                     TWCritType.Tardigrade,
+                    TWCritType.TowerCrab,
                 };
 
                 string[] tags = new string[]
