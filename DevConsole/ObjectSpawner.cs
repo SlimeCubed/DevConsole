@@ -880,6 +880,8 @@ namespace DevConsole
                                 state.placedObjectIndex = network.placedObjectIndex;
                                 state.origRoom = room.index;
 
+                                room.AddArenaSandGrubBurrow(burrow.pos);
+
                                 return crit;
                             }
                         ));
