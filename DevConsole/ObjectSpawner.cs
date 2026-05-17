@@ -548,6 +548,24 @@ namespace DevConsole
                 }
             ));
 
+            RegisterSpawner(ObjType.GraffitiBomb, new SimpleSpawnerInfo(
+                (_, args) => args.Length == 0 ? new string[] { AC.hintPrefix + "color: color" } : null,
+                (_, args, id, room, pos) =>
+                {
+                    if (args.Length > 0)
+                    {
+                        // Take color from arguments
+                        var color = ParseColor(args[0]);
+                        return new GraffitiBomb.AbstractGraffitiBomb(room.world, null, pos, id, -1, -1, null, color);
+                    }
+                    else
+                    {
+                        // Generate color from seed
+                        return new GraffitiBomb.AbstractGraffitiBomb(room.world, null, pos, id, -1, -1, null);
+                    }
+                }
+            ));
+
             if (ModManager.DLCShared)
             {
                 RegisterSpawner(DLCObjType.LillyPuck, new SimpleSpawnerInfo(
@@ -766,7 +784,8 @@ namespace DevConsole
                     if ((int)t == -1) continue;
 
                     RegisterSpawner(t, new SimpleSpawnerInfo(
-                        (type, args) => {
+                        (type, args) =>
+                        {
                             if (args.Length == 0)
                             {
                                 string hint = null;
@@ -885,7 +904,7 @@ namespace DevConsole
                                 state.placedObjectIndex = network.placedObjectIndex;
                                 state.origRoom = room.index;
 
-                                room.AddArenaSandGrubBurrow(burrow.pos);
+                                room.AddArenaSandGrubBurrow(burrow.pos, type == TWCritType.BigSandGrub);
 
                                 return crit;
                             }
@@ -1285,22 +1304,7 @@ namespace DevConsole
             }
             else if (toType == typeof(Color))
             {
-                var namedColor = System.Drawing.Color.FromName(text);
-                if (namedColor.IsKnownColor)
-                {
-                    return new Color(namedColor.R, namedColor.G, namedColor.B, namedColor.A) / 255f;
-                }
-
-                var match = Regex.Match(text, "^#?([0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?)$");
-                if (match.Success)
-                {
-                    Color color = RXUtils.GetColorFromHex(match.Groups[1].Value);
-                    if (match.Groups[1].Value.Length == 6)
-                        color.a = 1f;
-                    return color;
-                }
-
-                throw new FormatException("Unknown color name or invalid hexadecimal color code!");
+                return ParseColor(text);
             }
 
             // Try finding a method called FromString
@@ -1318,6 +1322,26 @@ namespace DevConsole
 
             // Default to conversion
             return Convert.ChangeType(text, toType);
+        }
+
+        private static Color ParseColor(string text)
+        {
+            var namedColor = System.Drawing.Color.FromName(text);
+            if (namedColor.IsKnownColor)
+            {
+                return new Color(namedColor.R, namedColor.G, namedColor.B, namedColor.A) / 255f;
+            }
+
+            var match = Regex.Match(text, "^#?([0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?)$");
+            if (match.Success)
+            {
+                Color color = RXUtils.GetColorFromHex(match.Groups[1].Value);
+                if (match.Groups[1].Value.Length == 6)
+                    color.a = 1f;
+                return color;
+            }
+
+            throw new FormatException("Unknown color name or invalid hexadecimal color code!");
         }
 
         private static IEnumerable<Assembly> GetScanAssemblies()
@@ -1364,7 +1388,7 @@ namespace DevConsole
         {
             EntityID outID = EntityID.FromString(id);
             string[] split = id.Split('.');
-            if(split.Length > 3 && int.TryParse(split[3], out int altSeed))
+            if (split.Length > 3 && int.TryParse(split[3], out int altSeed))
             {
                 outID.setAltSeed(altSeed);
             }
